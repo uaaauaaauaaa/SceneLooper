@@ -208,7 +208,7 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
 
         if (srcChannels == 1)
         {
-            const float angle = (pan + 1.0f) * juce::MathConstants<float>::quarterPi;
+            const float angle = (pan + 1.0f) * juce::MathConstants<float>::halfPi * 0.5f;
             const float lg = std::cos(angle);
             const float rg = std::sin(angle);
             outL[n] += left * lg * gain;

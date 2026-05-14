@@ -1,0 +1,87 @@
+#pragma once
+
+#include <JuceHeader.h>
+
+class SceneLooperAudioProcessor : public juce::AudioProcessor
+{
+public:
+    static constexpr int numLayers = 8;
+
+    SceneLooperAudioProcessor();
+    ~SceneLooperAudioProcessor() override;
+
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override;
+
+    const juce::String getName() const override;
+    bool acceptsMidi() const override;
+    bool producesMidi() const override;
+    bool isMidiEffect() const override;
+    double getTailLengthSeconds() const override;
+
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram(int index) override;
+    const juce::String getProgramName(int index) override;
+    void changeProgramName(int index, const juce::String& newName) override;
+
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    juce::AudioProcessorValueTreeState apvts;
+
+    bool loadFileForLayer(int layerIndex, const juce::File& file, juce::String& errorMessage);
+    juce::String getFileNameForLayer(int layerIndex) const;
+    bool isLayerLoaded(int layerIndex) const;
+
+    static juce::String paramId(int layerIndex, const juce::String& name);
+
+private:
+    struct OnePoleFilter
+    {
+        void reset() { z1 = 0.0f; }
+
+        float processLowPass(float x, float cutoff, double sampleRate)
+        {
+            const float a = std::exp(-2.0f * juce::MathConstants<float>::pi * cutoff / (float) sampleRate);
+            z1 = (1.0f - a) * x + a * z1;
+            return z1;
+        }
+
+        float processHighPass(float x, float cutoff, double sampleRate)
+        {
+            const float lp = processLowPass(x, cutoff, sampleRate);
+            return x - lp;
+        }
+
+        float z1 = 0.0f;
+    };
+
+    struct Layer
+    {
+        juce::File file;
+        juce::String displayName = "No file";
+        juce::AudioBuffer<float> audio;
+        bool loaded = false;
+        double position = 0.0;
+        OnePoleFilter hp[2];
+        OnePoleFilter lp[2];
+    };
+
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    Layer layers[numLayers];
+    juce::AudioFormatManager formatManager;
+    double currentSampleRate = 48000.0;
+
+    bool anySoloActive() const;
+    void resetLayerPlayback();
+    void renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessor)
+};

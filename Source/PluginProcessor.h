@@ -1,6 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_dsp/juce_dsp.h>
 
 class SceneLooperAudioProcessor : public juce::AudioProcessor
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
@@ -67,7 +68,7 @@ private:
     std::unique_ptr<SliderAttachment> masterAttachment;
     std::unique_ptr<SliderAttachment> globalXFadeAttachment;
 
-    juce::OwnedArray<LayerRow> rows;
+    std::array<std::unique_ptr<LayerRow>, SceneLooperAudioProcessor::numLayers> rows;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessorEditor)
 };

@@ -10,7 +10,7 @@ public:
     explicit SceneLooperAudioProcessorEditor(SceneLooperAudioProcessor&);
     ~SceneLooperAudioProcessorEditor() override;
 
-    void paint(juce::Graphics&) overide;
+    void paint(juce::Graphics&) override;
     void resized() override;
 
 private:

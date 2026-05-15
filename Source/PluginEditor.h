@@ -4,7 +4,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
-class SceneLooperAudioProcessorEditor : public juce::AudioProcessorEditor
+class SceneLooperAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                        private juce::Timer
 {
 public:
     explicit SceneLooperAudioProcessorEditor(SceneLooperAudioProcessor&);
@@ -24,6 +25,7 @@ private:
         void resized() override;
         void paint(juce::Graphics& g) override;
         void refreshFileName();
+        void refreshTimeDisplay();
 
     private:
         SceneLooperAudioProcessor& processor;
@@ -35,6 +37,8 @@ private:
         juce::ToggleButton onButton { "On" };
         juce::ToggleButton soloButton { "Solo" };
         juce::ToggleButton autoPanButton { "AutoPan" };
+        juce::Label lengthLabel;
+        juce::Label remainLabel;
         juce::Label volumeLabel;
         juce::Label panLabel;
         juce::Label autoPanAmountLabel;
@@ -82,6 +86,8 @@ private:
     std::array<std::unique_ptr<LayerRow>, SceneLooperAudioProcessor::numLayers> rows;
 
     void refreshLayerNames();
+    void refreshLayerTimes();
+    void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessorEditor)
 };

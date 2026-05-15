@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
+
 SceneLooperAudioProcessor::SceneLooperAudioProcessor()
     : AudioProcessor(BusesProperties()
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
@@ -83,6 +85,8 @@ void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce:
     layer.displayName = "Missing file";
     layer.loaded = false;
     layer.audio.setSize(0, 0);
+    layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
+    layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
@@ -95,6 +99,8 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
     layer.displayName = "No file";
     layer.loaded = false;
     layer.audio.setSize(0, 0);
+    layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
+    layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
 }
 
 const juce::String SceneLooperAudioProcessor::getName() const { return JucePlugin_Name; }
@@ -128,6 +134,11 @@ void SceneLooperAudioProcessor::resetLayerPlayback()
     {
         const auto offsetSeconds = apvts.getRawParameterValue(paramId(i, "offset"))->load();
         layers[i].position = std::max(0.0, (double) offsetSeconds * currentSampleRate);
+        if (layers[i].audio.getNumSamples() > 0)
+            layers[i].displayPositionSamples.store(std::fmod(layers[i].position, (double) layers[i].audio.getNumSamples()),
+                std::memory_order_relaxed);
+        else
+            layers[i].displayPositionSamples.store(0.0, std::memory_order_relaxed);
         layers[i].autoPanPhase = 0.0;
         for (auto& f : layers[i].hp) f.reset();
         for (auto& f : layers[i].lp) f.reset();
@@ -175,6 +186,8 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
     layer.displayName = file.getFileName();
     layer.loaded = true;
     layer.position = apvts.getRawParameterValue(paramId(layerIndex, "offset"))->load() * currentSampleRate;
+    layer.lengthSeconds.store((double) reader->lengthInSamples / reader->sampleRate, std::memory_order_relaxed);
+    layer.displayPositionSamples.store(std::fmod(layer.position, (double) layer.audio.getNumSamples()), std::memory_order_relaxed);
 
     errorMessage.clear();
     return true;
@@ -190,6 +203,27 @@ juce::String SceneLooperAudioProcessor::getFileNameForLayer(int layerIndex) cons
 bool SceneLooperAudioProcessor::isLayerLoaded(int layerIndex) const
 {
     return juce::isPositiveAndBelow(layerIndex, numLayers) && layers[layerIndex].loaded;
+}
+
+double SceneLooperAudioProcessor::getLayerLengthSeconds(int layerIndex) const
+{
+    if (! isLayerLoaded(layerIndex))
+        return -1.0;
+
+    return layers[layerIndex].lengthSeconds.load(std::memory_order_relaxed);
+}
+
+double SceneLooperAudioProcessor::getLayerRemainingSeconds(int layerIndex) const
+{
+    if (! isLayerLoaded(layerIndex))
+        return -1.0;
+
+    const auto lengthSeconds = layers[layerIndex].lengthSeconds.load(std::memory_order_relaxed);
+    if (lengthSeconds <= 0.0)
+        return -1.0;
+
+    const auto positionSeconds = layers[layerIndex].displayPositionSamples.load(std::memory_order_relaxed) / currentSampleRate;
+    return juce::jlimit(0.0, lengthSeconds, lengthSeconds - std::fmod(positionSeconds, lengthSeconds));
 }
 
 bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const
@@ -345,6 +379,7 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     auto* outR = output.getWritePointer(1);
     const auto* srcL = layer.audio.getReadPointer(0);
     const auto* srcR = srcChannels > 1 ? layer.audio.getReadPointer(1) : nullptr;
+    double displayPositionSamples = layer.displayPositionSamples.load(std::memory_order_relaxed);
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -420,7 +455,13 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
         layer.position += 1.0;
         if (layer.position >= length)
             layer.position = (double) xfadeSamples;
+
+        displayPositionSamples += 1.0;
+        if (displayPositionSamples >= length)
+            displayPositionSamples = 0.0;
     }
+
+    layer.displayPositionSamples.store(displayPositionSamples, std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -483,6 +524,8 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
             markLayerMissingFile(index, file);
         }
     }
+
+    resetLayerPlayback();
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

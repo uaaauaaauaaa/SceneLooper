@@ -1,12 +1,35 @@
 #include "PluginEditor.h"
 
+#include <cmath>
+
+namespace
+{
+juce::String formatTime(double seconds, bool countdown)
+{
+    if (seconds < 0.0)
+        return "--:--";
+
+    auto totalSeconds = (int) (countdown ? std::ceil(seconds) : std::floor(seconds + 0.5));
+    totalSeconds = juce::jmax(0, totalSeconds);
+
+    const int hours = totalSeconds / 3600;
+    const int minutes = (totalSeconds / 60) % 60;
+    const int secs = totalSeconds % 60;
+
+    if (hours > 0)
+        return juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
+
+    return juce::String::formatted("%02d:%02d", minutes, secs);
+}
+}
+
 SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudioProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
     setResizable(false, false);
     setResizeLimits(1480, 860, 1480, 860);
 
-    titleLabel.setText("SceneLooper v0.3", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.4", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -62,6 +85,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
                     juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "SceneLooper", error);
 
                 refreshLayerNames();
+                refreshLayerTimes();
             });
     };
 
@@ -73,6 +97,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 
     setSize(1480, 860);
     resized();
+    startTimerHz(5);
 }
 
 SceneLooperAudioProcessorEditor::~SceneLooperAudioProcessorEditor() = default;
@@ -126,6 +151,20 @@ void SceneLooperAudioProcessorEditor::refreshLayerNames()
     }
 }
 
+void SceneLooperAudioProcessorEditor::refreshLayerTimes()
+{
+    for (auto& row : rows)
+    {
+        if (row != nullptr)
+            row->refreshTimeDisplay();
+    }
+}
+
+void SceneLooperAudioProcessorEditor::timerCallback()
+{
+    refreshLayerTimes();
+}
+
 SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p, int index)
     : processor(p), layerIndex(index)
 {
@@ -144,6 +183,18 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     addAndMakeVisible(onButton);
     addAndMakeVisible(soloButton);
     addAndMakeVisible(autoPanButton);
+
+    auto setupTimeLabel = [] (juce::Label& label)
+    {
+        label.setJustificationType(juce::Justification::centred);
+        label.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.78f));
+        label.setFont(11.0f);
+    };
+
+    setupTimeLabel(lengthLabel);
+    setupTimeLabel(remainLabel);
+    addAndMakeVisible(lengthLabel);
+    addAndMakeVisible(remainLabel);
 
     auto setupLabel = [] (juce::Label& label, const juce::String& text)
     {
@@ -214,9 +265,12 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
                     if (! processor.loadFileForLayer(layerIndex, file, error))
                         juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "SceneLooper", error);
                     refreshFileName();
+                    refreshTimeDisplay();
                 }
             });
     };
+
+    refreshTimeDisplay();
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::setupSlider(juce::Slider& slider, const juce::String& suffix)
@@ -244,7 +298,9 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(42));
     loadButton.setBounds(area.removeFromLeft(82).reduced(4, 6));
-    fileLabel.setBounds(area.removeFromLeft(170));
+    fileLabel.setBounds(area.removeFromLeft(120));
+    lengthLabel.setBounds(area.removeFromLeft(106));
+    remainLabel.setBounds(area.removeFromLeft(110));
     onButton.setBounds(area.removeFromLeft(58));
     soloButton.setBounds(area.removeFromLeft(64));
     autoPanButton.setBounds(area.removeFromLeft(84));
@@ -269,4 +325,12 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()
 {
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::refreshTimeDisplay()
+{
+    lengthLabel.setText("Length: " + formatTime(processor.getLayerLengthSeconds(layerIndex), false),
+        juce::dontSendNotification);
+    remainLabel.setText("Remain: " + formatTime(processor.getLayerRemainingSeconds(layerIndex), true),
+        juce::dontSendNotification);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
@@ -40,6 +41,8 @@ public:
     bool loadFileForLayer(int layerIndex, const juce::File& file, juce::String& errorMessage);
     juce::String getFileNameForLayer(int layerIndex) const;
     bool isLayerLoaded(int layerIndex) const;
+    double getLayerLengthSeconds(int layerIndex) const;
+    double getLayerRemainingSeconds(int layerIndex) const;
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
 
@@ -74,6 +77,8 @@ private:
         bool loaded = false;
         double position = 0.0;
         double autoPanPhase = 0.0;
+        std::atomic<double> lengthSeconds { 0.0 };
+        std::atomic<double> displayPositionSamples { 0.0 };
         OnePoleFilter hp[2];
         OnePoleFilter lp[2];
     };

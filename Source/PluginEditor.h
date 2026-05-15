@@ -33,6 +33,7 @@ private:
         public:
             WaveformPreview(SceneLooperAudioProcessor& processor, int layerIndex);
             void paint(juce::Graphics& g) override;
+            void mouseDown(const juce::MouseEvent& event) override;
 
         private:
             SceneLooperAudioProcessor& processor;

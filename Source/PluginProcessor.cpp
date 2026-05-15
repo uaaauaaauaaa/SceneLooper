@@ -88,6 +88,7 @@ void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce:
     layer.audio.setSize(0, 0);
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
+    layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
@@ -104,6 +105,7 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
     layer.audio.setSize(0, 0);
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
+    layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
@@ -199,6 +201,7 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
     layer.position = apvts.getRawParameterValue(paramId(layerIndex, "offset"))->load() * currentSampleRate;
     layer.lengthSeconds.store((double) reader->lengthInSamples / reader->sampleRate, std::memory_order_relaxed);
     layer.displayPositionSamples.store(std::fmod(layer.position, (double) layer.audio.getNumSamples()), std::memory_order_relaxed);
+    layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
     buildWaveformPreview(layerIndex);
 
     errorMessage.clear();
@@ -239,6 +242,20 @@ void SceneLooperAudioProcessor::buildWaveformPreview(int layerIndex)
         layer.waveformPreview[(size_t) point] = juce::jlimit(0.0f, 1.0f, peak);
     }
 
+    float maxPeak = 0.0f;
+    for (const auto peak : layer.waveformPreview)
+        maxPeak = juce::jmax(maxPeak, peak);
+
+    if (maxPeak > 0.0f)
+    {
+        constexpr float targetPeak = 0.82f;
+        constexpr float maxVisualGain = 48.0f;
+        const float visualGain = juce::jlimit(0.0f, maxVisualGain, targetPeak / maxPeak);
+
+        for (auto& peak : layer.waveformPreview)
+            peak = juce::jlimit(0.0f, targetPeak, peak * visualGain);
+    }
+
     layer.waveformPreviewReady.store(true, std::memory_order_relaxed);
 }
 
@@ -273,6 +290,35 @@ double SceneLooperAudioProcessor::getLayerRemainingSeconds(int layerIndex) const
 
     const auto positionSeconds = layers[layerIndex].displayPositionSamples.load(std::memory_order_relaxed) / currentSampleRate;
     return juce::jlimit(0.0, lengthSeconds, lengthSeconds - std::fmod(positionSeconds, lengthSeconds));
+}
+
+double SceneLooperAudioProcessor::getLayerPlaybackPositionFraction(int layerIndex) const
+{
+    if (! isLayerLoaded(layerIndex))
+        return -1.0;
+
+    const int numSamples = layers[layerIndex].audio.getNumSamples();
+    if (numSamples <= 0)
+        return -1.0;
+
+    const auto position = layers[layerIndex].displayPositionSamples.load(std::memory_order_relaxed);
+    return juce::jlimit(0.0, 1.0, position / (double) juce::jmax(1, numSamples - 1));
+}
+
+void SceneLooperAudioProcessor::seekLayerToFraction(int layerIndex, double fraction)
+{
+    if (! isLayerLoaded(layerIndex))
+        return;
+
+    const int numSamples = layers[layerIndex].audio.getNumSamples();
+    if (numSamples <= 0)
+        return;
+
+    const auto clampedFraction = juce::jlimit(0.0, 1.0, fraction);
+    const auto targetSample = juce::jlimit(0.0, (double) juce::jmax(0, numSamples - 1),
+        clampedFraction * (double) juce::jmax(0, numSamples - 1));
+    layers[layerIndex].displayPositionSamples.store(targetSample, std::memory_order_relaxed);
+    layers[layerIndex].pendingSeekFraction.store(clampedFraction, std::memory_order_relaxed);
 }
 
 bool SceneLooperAudioProcessor::copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const
@@ -435,6 +481,14 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
 
     const int srcChannels = layer.audio.getNumChannels();
     const int length = layer.audio.getNumSamples();
+    const auto pendingSeek = layer.pendingSeekFraction.exchange(-1.0, std::memory_order_relaxed);
+    if (pendingSeek >= 0.0)
+    {
+        layer.position = juce::jlimit(0.0, (double) juce::jmax(0, length - 1),
+            pendingSeek * (double) juce::jmax(0, length - 1));
+        layer.displayPositionSamples.store(layer.position, std::memory_order_relaxed);
+    }
+
     int xfadeSamples = (int) std::round(xfadeSeconds * currentSampleRate);
     xfadeSamples = juce::jlimit(0, std::max(0, length / 2 - 1), xfadeSamples);
 

@@ -29,7 +29,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     setResizable(false, false);
     setResizeLimits(1480, 860, 1480, 860);
 
-    titleLabel.setText("SceneLooper v0.5", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.6", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -97,7 +97,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 
     setSize(1480, 860);
     resized();
-    startTimerHz(5);
+    startTimerHz(20);
 }
 
 SceneLooperAudioProcessorEditor::~SceneLooperAudioProcessorEditor() = default;
@@ -201,6 +201,25 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
         const float y = peak * usableHeight;
         g.drawVerticalLine((int) std::round(x), centreY - y, centreY + y);
     }
+
+    const auto cursorFraction = processor.getLayerPlaybackPositionFraction(layerIndex);
+    if (cursorFraction >= 0.0)
+    {
+        const float cursorX = bounds.getX() + bounds.getWidth() * (float) cursorFraction;
+        g.setColour(juce::Colours::white.withAlpha(0.88f));
+        g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 1.5f);
+    }
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseDown(const juce::MouseEvent& event)
+{
+    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+    if (bounds.getWidth() <= 0.0f)
+        return;
+
+    const auto fraction = (event.position.x - bounds.getX()) / bounds.getWidth();
+    processor.seekLayerToFraction(layerIndex, juce::jlimit(0.0f, 1.0f, fraction));
+    repaint();
 }
 
 SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p, int index)
@@ -337,11 +356,11 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(42));
     loadButton.setBounds(area.removeFromLeft(82).reduced(4, 6));
-    auto fileArea = area.removeFromLeft(210);
+    auto fileArea = area.removeFromLeft(228);
     fileLabel.setBounds(fileArea.removeFromTop(20));
     waveformPreview.setBounds(fileArea.reduced(0, 3));
-    lengthLabel.setBounds(area.removeFromLeft(92));
-    remainLabel.setBounds(area.removeFromLeft(98));
+    lengthLabel.setBounds(area.removeFromLeft(82));
+    remainLabel.setBounds(area.removeFromLeft(88));
     onButton.setBounds(area.removeFromLeft(58));
     soloButton.setBounds(area.removeFromLeft(64));
     autoPanButton.setBounds(area.removeFromLeft(80));
@@ -371,8 +390,9 @@ void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshTimeDisplay()
 {
-    lengthLabel.setText("Length: " + formatTime(processor.getLayerLengthSeconds(layerIndex), false),
+    lengthLabel.setText("Length " + formatTime(processor.getLayerLengthSeconds(layerIndex), false),
         juce::dontSendNotification);
-    remainLabel.setText("Remain: " + formatTime(processor.getLayerRemainingSeconds(layerIndex), true),
+    remainLabel.setText("Remain " + formatTime(processor.getLayerRemainingSeconds(layerIndex), true),
         juce::dontSendNotification);
+    waveformPreview.repaint();
 }

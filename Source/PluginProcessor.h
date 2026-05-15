@@ -45,6 +45,8 @@ public:
     bool isLayerLoaded(int layerIndex) const;
     double getLayerLengthSeconds(int layerIndex) const;
     double getLayerRemainingSeconds(int layerIndex) const;
+    double getLayerPlaybackPositionFraction(int layerIndex) const;
+    void seekLayerToFraction(int layerIndex, double fraction);
     bool copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const;
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
@@ -82,6 +84,7 @@ private:
         double autoPanPhase = 0.0;
         std::atomic<double> lengthSeconds { 0.0 };
         std::atomic<double> displayPositionSamples { 0.0 };
+        std::atomic<double> pendingSeekFraction { -1.0 };
         std::array<float, waveformPreviewPoints> waveformPreview {};
         std::atomic<bool> waveformPreviewReady { false };
         OnePoleFilter hp[2];

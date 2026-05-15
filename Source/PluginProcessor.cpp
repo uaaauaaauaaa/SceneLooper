@@ -290,3 +290,8 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
         }
     }
 }
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new SceneLooperAudioProcessor();
+}

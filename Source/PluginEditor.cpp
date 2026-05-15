@@ -3,7 +3,9 @@
 SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudioProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(1120, 720);
+    setResizable(false, false);
+    setResizeLimits(1180, 860, 1180, 860);
+    setSize(1180, 860);
 
     titleLabel.setText("SceneLooper v0.1", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
@@ -51,20 +53,20 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(juce::Colours::white.withAlpha(0.75f));
     g.setFont(12.0f);
-    g.drawText("MASTER", 790, 22, 100, 20, juce::Justification::centred);
-    g.drawText("GLOBAL XFADE", 910, 22, 130, 20, juce::Justification::centred);
+    g.drawText("MASTER", 384, 22, 120, 20, juce::Justification::centred);
+    g.drawText("GLOBAL XFADE", 504, 22, 140, 20, juce::Justification::centred);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(24);
-    auto top = area.removeFromTop(90);
+    auto top = area.removeFromTop(92);
     titleLabel.setBounds(top.removeFromLeft(360));
     masterSlider.setBounds(top.removeFromLeft(120).reduced(12));
     globalXFadeSlider.setBounds(top.removeFromLeft(140).reduced(12));
 
     auto rowArea = area.reduced(0, 6);
-    const int rowHeight = rowArea.getHeight() / SceneLooperAudioProcessor::numLayers;
+    const int rowHeight = 84;
     for (auto* row : rows)
         row->setBounds(rowArea.removeFromTop(rowHeight).reduced(0, 3));
 }
@@ -86,6 +88,28 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
     addAndMakeVisible(soloButton);
+
+    auto setupLabel = [] (juce::Label& label, const juce::String& text)
+    {
+        label.setText(text, juce::dontSendNotification);
+        label.setJustificationType(juce::Justification::centred);
+        label.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.72f));
+        label.setFont(11.0f);
+    };
+
+    setupLabel(volumeLabel, "Volume");
+    setupLabel(panLabel, "Pan");
+    setupLabel(hpLabel, "HP");
+    setupLabel(lpLabel, "LP");
+    setupLabel(xfadeLabel, "XFade");
+    setupLabel(offsetLabel, "Start Offset");
+
+    addAndMakeVisible(volumeLabel);
+    addAndMakeVisible(panLabel);
+    addAndMakeVisible(hpLabel);
+    addAndMakeVisible(lpLabel);
+    addAndMakeVisible(xfadeLabel);
+    addAndMakeVisible(offsetLabel);
 
     setupSlider(volumeSlider, " dB");
     setupSlider(panSlider, "");
@@ -153,16 +177,23 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(42));
     loadButton.setBounds(area.removeFromLeft(82).reduced(4, 6));
-    fileLabel.setBounds(area.removeFromLeft(220));
+    fileLabel.setBounds(area.removeFromLeft(170));
     onButton.setBounds(area.removeFromLeft(58));
-    soloButton.setBounds(area.removeFromLeft(42));
+    soloButton.setBounds(area.removeFromLeft(64));
 
-    volumeSlider.setBounds(area.removeFromLeft(95));
-    panSlider.setBounds(area.removeFromLeft(85));
-    hpSlider.setBounds(area.removeFromLeft(95));
-    lpSlider.setBounds(area.removeFromLeft(95));
-    xfadeSlider.setBounds(area.removeFromLeft(95));
-    offsetSlider.setBounds(area.removeFromLeft(95));
+    auto placeControl = [&area] (juce::Label& label, juce::Slider& slider, int width)
+    {
+        auto column = area.removeFromLeft(width);
+        label.setBounds(column.removeFromTop(16));
+        slider.setBounds(column);
+    };
+
+    placeControl(volumeLabel, volumeSlider, 92);
+    placeControl(panLabel, panSlider, 82);
+    placeControl(hpLabel, hpSlider, 92);
+    placeControl(lpLabel, lpSlider, 92);
+    placeControl(xfadeLabel, xfadeSlider, 92);
+    placeControl(offsetLabel, offsetSlider, 112);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()

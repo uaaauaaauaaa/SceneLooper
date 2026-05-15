@@ -32,7 +32,13 @@ private:
         juce::TextButton loadButton { "Load WAV" };
         juce::Label fileLabel;
         juce::ToggleButton onButton { "On" };
-        juce::ToggleButton soloButton { "S" };
+        juce::ToggleButton soloButton { "Solo" };
+        juce::Label volumeLabel;
+        juce::Label panLabel;
+        juce::Label hpLabel;
+        juce::Label lpLabel;
+        juce::Label xfadeLabel;
+        juce::Label offsetLabel;
         juce::Slider volumeSlider;
         juce::Slider panSlider;
         juce::Slider hpSlider;

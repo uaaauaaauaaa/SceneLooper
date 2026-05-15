@@ -32,6 +32,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout SceneLooperAudioProcessor::c
             juce::NormalisableRange<float>(-60.0f, 6.0f, 0.1f), 0.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "pan", nice + "Pan",
             juce::NormalisableRange<float>(-1.0f, 1.0f, 0.001f), 0.0f));
+        params.push_back(std::make_unique<juce::AudioParameterBool>(prefix + "autoPanOn", nice + "AutoPan On", false));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "autoPanAmount", nice + "AutoPan Amount",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "autoPanRate", nice + "AutoPan Rate",
+            juce::NormalisableRange<float>(0.01f, 1.0f, 0.001f, 0.35f), 0.25f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "hp", nice + "HP",
             juce::NormalisableRange<float>(20.0f, 1000.0f, 1.0f, 0.35f), 20.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "lp", nice + "LP",
@@ -81,6 +86,7 @@ void SceneLooperAudioProcessor::resetLayerPlayback()
     {
         const auto offsetSeconds = apvts.getRawParameterValue(paramId(i, "offset"))->load();
         layers[i].position = std::max(0.0, (double) offsetSeconds * currentSampleRate);
+        layers[i].autoPanPhase = 0.0;
         for (auto& f : layers[i].hp) f.reset();
         for (auto& f : layers[i].lp) f.reset();
     }
@@ -158,9 +164,13 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     const float masterVolumeDb = apvts.getRawParameterValue("masterVolume")->load();
     const float gain = juce::Decibels::decibelsToGain(layerVolumeDb + masterVolumeDb, -90.0f);
     const float pan = apvts.getRawParameterValue(paramId(layerIndex, "pan"))->load();
+    const bool autoPanOn = apvts.getRawParameterValue(paramId(layerIndex, "autoPanOn"))->load() > 0.5f;
+    const float autoPanAmount = apvts.getRawParameterValue(paramId(layerIndex, "autoPanAmount"))->load();
+    const float autoPanRate = apvts.getRawParameterValue(paramId(layerIndex, "autoPanRate"))->load();
     const float hp = apvts.getRawParameterValue(paramId(layerIndex, "hp"))->load();
     const float lp = apvts.getRawParameterValue(paramId(layerIndex, "lp"))->load();
     const float xfadeSeconds = apvts.getRawParameterValue(paramId(layerIndex, "xfade"))->load();
+    const double autoPanPhaseDelta = juce::MathConstants<double>::twoPi * (double) autoPanRate / currentSampleRate;
 
     const int srcChannels = layer.audio.getNumChannels();
     const int length = layer.audio.getNumSamples();
@@ -208,7 +218,14 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
 
         if (srcChannels == 1)
         {
-            const float angle = (pan + 1.0f) * juce::MathConstants<float>::halfPi * 0.5f;
+            float effectivePan = pan;
+            if (autoPanOn)
+            {
+                effectivePan = juce::jlimit(-1.0f, 1.0f,
+                    pan + (float) std::sin(layer.autoPanPhase) * autoPanAmount);
+            }
+
+            const float angle = (effectivePan + 1.0f) * juce::MathConstants<float>::halfPi * 0.5f;
             const float lg = std::cos(angle);
             const float rg = std::sin(angle);
             outL[n] += left * lg * gain;
@@ -216,10 +233,24 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
         }
         else
         {
-            const float lg = pan <= 0.0f ? 1.0f : 1.0f - pan;
-            const float rg = pan >= 0.0f ? 1.0f : 1.0f + pan;
+            float effectivePan = pan;
+            if (autoPanOn)
+            {
+                effectivePan = juce::jlimit(-1.0f, 1.0f,
+                    pan + (float) std::sin(layer.autoPanPhase) * autoPanAmount);
+            }
+
+            const float lg = effectivePan <= 0.0f ? 1.0f : 1.0f - effectivePan;
+            const float rg = effectivePan >= 0.0f ? 1.0f : 1.0f + effectivePan;
             outL[n] += left * lg * gain;
             outR[n] += right * rg * gain;
+        }
+
+        if (autoPanOn)
+        {
+            layer.autoPanPhase += autoPanPhaseDelta;
+            if (layer.autoPanPhase >= juce::MathConstants<double>::twoPi)
+                layer.autoPanPhase -= juce::MathConstants<double>::twoPi;
         }
 
         layer.position += 1.0;

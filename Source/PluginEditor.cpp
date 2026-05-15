@@ -4,9 +4,9 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     : AudioProcessorEditor(&p), processor(p)
 {
     setResizable(false, false);
-    setResizeLimits(1180, 860, 1180, 860);
+    setResizeLimits(1480, 860, 1480, 860);
 
-    titleLabel.setText("SceneLooper v0.1 UI fix 2", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.2 Auto Pan", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -32,7 +32,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
         addAndMakeVisible(*rows[(size_t) i]);
     }
 
-    setSize(1180, 860);
+    setSize(1480, 860);
     resized();
 }
 
@@ -92,6 +92,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
     addAndMakeVisible(soloButton);
+    addAndMakeVisible(autoPanButton);
 
     auto setupLabel = [] (juce::Label& label, const juce::String& text)
     {
@@ -103,6 +104,8 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     setupLabel(volumeLabel, "Volume");
     setupLabel(panLabel, "Pan");
+    setupLabel(autoPanAmountLabel, "AP Amt");
+    setupLabel(autoPanRateLabel, "AP Hz");
     setupLabel(hpLabel, "HP");
     setupLabel(lpLabel, "LP");
     setupLabel(xfadeLabel, "XFade");
@@ -110,6 +113,8 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     addAndMakeVisible(volumeLabel);
     addAndMakeVisible(panLabel);
+    addAndMakeVisible(autoPanAmountLabel);
+    addAndMakeVisible(autoPanRateLabel);
     addAndMakeVisible(hpLabel);
     addAndMakeVisible(lpLabel);
     addAndMakeVisible(xfadeLabel);
@@ -117,6 +122,8 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     setupSlider(volumeSlider, " dB");
     setupSlider(panSlider, "");
+    setupSlider(autoPanAmountSlider, "");
+    setupSlider(autoPanRateSlider, " Hz");
     setupSlider(hpSlider, " Hz");
     setupSlider(lpSlider, " Hz");
     setupSlider(xfadeSlider, " s");
@@ -124,6 +131,8 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     addAndMakeVisible(volumeSlider);
     addAndMakeVisible(panSlider);
+    addAndMakeVisible(autoPanAmountSlider);
+    addAndMakeVisible(autoPanRateSlider);
     addAndMakeVisible(hpSlider);
     addAndMakeVisible(lpSlider);
     addAndMakeVisible(xfadeSlider);
@@ -131,8 +140,11 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     onAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "on"), onButton);
     soloAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "solo"), soloButton);
+    autoPanAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanOn"), autoPanButton);
     volumeAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "volume"), volumeSlider);
     panAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "pan"), panSlider);
+    autoPanAmountAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanAmount"), autoPanAmountSlider);
+    autoPanRateAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanRate"), autoPanRateSlider);
     hpAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "hp"), hpSlider);
     lpAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "lp"), lpSlider);
     xfadeAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "xfade"), xfadeSlider);
@@ -184,6 +196,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     fileLabel.setBounds(area.removeFromLeft(170));
     onButton.setBounds(area.removeFromLeft(58));
     soloButton.setBounds(area.removeFromLeft(64));
+    autoPanButton.setBounds(area.removeFromLeft(84));
 
     auto placeControl = [&area] (juce::Label& label, juce::Slider& slider, int width)
     {
@@ -194,6 +207,8 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 
     placeControl(volumeLabel, volumeSlider, 92);
     placeControl(panLabel, panSlider, 82);
+    placeControl(autoPanAmountLabel, autoPanAmountSlider, 82);
+    placeControl(autoPanRateLabel, autoPanRateSlider, 86);
     placeControl(hpLabel, hpSlider, 92);
     placeControl(lpLabel, lpSlider, 92);
     placeControl(xfadeLabel, xfadeSlider, 92);

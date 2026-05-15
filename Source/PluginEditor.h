@@ -10,7 +10,7 @@ public:
     explicit SceneLooperAudioProcessorEditor(SceneLooperAudioProcessor&);
     ~SceneLooperAudioProcessorEditor() override;
 
-    void paint(juce::Graphics&) override;
+    void paint(juce::Graphics&) overide;
     void resized() override;
 
 private:
@@ -34,14 +34,19 @@ private:
         juce::Label fileLabel;
         juce::ToggleButton onButton { "On" };
         juce::ToggleButton soloButton { "Solo" };
+        juce::ToggleButton autoPanButton { "AutoPan" };
         juce::Label volumeLabel;
         juce::Label panLabel;
+        juce::Label autoPanAmountLabel;
+        juce::Label autoPanRateLabel;
         juce::Label hpLabel;
         juce::Label lpLabel;
         juce::Label xfadeLabel;
         juce::Label offsetLabel;
         juce::Slider volumeSlider;
         juce::Slider panSlider;
+        juce::Slider autoPanAmountSlider;
+        juce::Slider autoPanRateSlider;
         juce::Slider hpSlider;
         juce::Slider lpSlider;
         juce::Slider xfadeSlider;
@@ -50,8 +55,11 @@ private:
 
         std::unique_ptr<ButtonAttachment> onAttachment;
         std::unique_ptr<ButtonAttachment> soloAttachment;
+        std::unique_ptr<ButtonAttachment> autoPanAttachment;
         std::unique_ptr<SliderAttachment> volumeAttachment;
         std::unique_ptr<SliderAttachment> panAttachment;
+        std::unique_ptr<SliderAttachment> autoPanAmountAttachment;
+        std::unique_ptr<SliderAttachment> autoPanRateAttachment;
         std::unique_ptr<SliderAttachment> hpAttachment;
         std::unique_ptr<SliderAttachment> lpAttachment;
         std::unique_ptr<SliderAttachment> xfadeAttachment;

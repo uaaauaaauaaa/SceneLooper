@@ -71,6 +71,7 @@ private:
         juce::AudioBuffer<float> audio;
         bool loaded = false;
         double position = 0.0;
+        double autoPanPhase = 0.0;
         OnePoleFilter hp[2];
         OnePoleFilter lp[2];
     };

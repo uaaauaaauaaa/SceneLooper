@@ -91,7 +91,7 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
         return;
 
     auto& layer = layers[layerIndex];
-    layer.file = {};
+    layer.file = juce::File();
     layer.displayName = "No file";
     layer.loaded = false;
     layer.audio.setSize(0, 0);

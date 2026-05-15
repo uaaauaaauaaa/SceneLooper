@@ -55,6 +55,48 @@ juce::String SceneLooperAudioProcessor::paramId(int layerIndex, const juce::Stri
     return juce::String("layer") + juce::String(layerIndex + 1) + "_" + name;
 }
 
+float SceneLooperAudioProcessor::getParameterValue(const juce::String& id) const
+{
+    if (auto* value = apvts.getRawParameterValue(id))
+        return value->load();
+
+    return 0.0f;
+}
+
+void SceneLooperAudioProcessor::setParameterValue(const juce::String& id, float value)
+{
+    if (auto* parameter = apvts.getParameter(id))
+    {
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+        parameter->endChangeGesture();
+    }
+}
+
+void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce::File& file)
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return;
+
+    auto& layer = layers[layerIndex];
+    layer.file = file;
+    layer.displayName = "Missing file";
+    layer.loaded = false;
+    layer.audio.setSize(0, 0);
+}
+
+void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return;
+
+    auto& layer = layers[layerIndex];
+    layer.file = {};
+    layer.displayName = "No file";
+    layer.loaded = false;
+    layer.audio.setSize(0, 0);
+}
+
 const juce::String SceneLooperAudioProcessor::getName() const { return JucePlugin_Name; }
 bool SceneLooperAudioProcessor::acceptsMidi() const { return false; }
 bool SceneLooperAudioProcessor::producesMidi() const { return false; }
@@ -148,6 +190,128 @@ juce::String SceneLooperAudioProcessor::getFileNameForLayer(int layerIndex) cons
 bool SceneLooperAudioProcessor::isLayerLoaded(int layerIndex) const
 {
     return juce::isPositiveAndBelow(layerIndex, numLayers) && layers[layerIndex].loaded;
+}
+
+bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const
+{
+    juce::var rootVar(new juce::DynamicObject());
+    auto* root = rootVar.getDynamicObject();
+
+    juce::var globalVar(new juce::DynamicObject());
+    auto* global = globalVar.getDynamicObject();
+    global->setProperty("masterVolume", getParameterValue("masterVolume"));
+    global->setProperty("globalXFade", getParameterValue("globalXFade"));
+    root->setProperty("global", globalVar);
+
+    juce::Array<juce::var> layerArray;
+    for (int i = 0; i < numLayers; ++i)
+    {
+        juce::var layerVar(new juce::DynamicObject());
+        auto* layer = layerVar.getDynamicObject();
+
+        layer->setProperty("filePath", layers[i].file.getFullPathName());
+        layer->setProperty("enabled", getParameterValue(paramId(i, "on")) > 0.5f);
+        layer->setProperty("solo", getParameterValue(paramId(i, "solo")) > 0.5f);
+        layer->setProperty("volume", getParameterValue(paramId(i, "volume")));
+        layer->setProperty("pan", getParameterValue(paramId(i, "pan")));
+        layer->setProperty("autoPanEnabled", getParameterValue(paramId(i, "autoPanOn")) > 0.5f);
+        layer->setProperty("autoPanAmount", getParameterValue(paramId(i, "autoPanAmount")));
+        layer->setProperty("autoPanRateHz", getParameterValue(paramId(i, "autoPanRate")));
+        layer->setProperty("hp", getParameterValue(paramId(i, "hp")));
+        layer->setProperty("lp", getParameterValue(paramId(i, "lp")));
+        layer->setProperty("xfade", getParameterValue(paramId(i, "xfade")));
+        layer->setProperty("startOffset", getParameterValue(paramId(i, "offset")));
+
+        layerArray.add(layerVar);
+    }
+
+    root->setProperty("layers", layerArray);
+
+    auto target = file;
+    if (target.getFileExtension() != ".scene")
+        target = target.withFileExtension(".scene");
+
+    if (! target.replaceWithText(juce::JSON::toString(rootVar, true)))
+    {
+        errorMessage = "Could not write scene file";
+        return false;
+    }
+
+    errorMessage.clear();
+    return true;
+}
+
+bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::String& errorMessage)
+{
+    if (! file.existsAsFile())
+    {
+        errorMessage = "Scene file not found";
+        return false;
+    }
+
+    juce::var scene;
+    const auto parseResult = juce::JSON::parse(file.loadFileAsString(), scene);
+    if (parseResult.failed() || ! scene.isObject())
+    {
+        errorMessage = "Invalid scene file";
+        return false;
+    }
+
+    auto* root = scene.getDynamicObject();
+    auto globalVar = root->getProperty("global");
+    if (globalVar.isObject())
+    {
+        auto* global = globalVar.getDynamicObject();
+        setParameterValue("masterVolume", (float) global->getProperty("masterVolume"));
+        setParameterValue("globalXFade", (float) global->getProperty("globalXFade"));
+    }
+
+    auto layersVar = root->getProperty("layers");
+    if (auto* layerArray = layersVar.getArray())
+    {
+        const int count = juce::jmin(numLayers, layerArray->size());
+        for (int i = 0; i < count; ++i)
+        {
+            if (! layerArray->getReference(i).isObject())
+                continue;
+
+            auto* layer = layerArray->getReference(i).getDynamicObject();
+            setParameterValue(paramId(i, "on"), (bool) layer->getProperty("enabled") ? 1.0f : 0.0f);
+            setParameterValue(paramId(i, "solo"), (bool) layer->getProperty("solo") ? 1.0f : 0.0f);
+            setParameterValue(paramId(i, "volume"), (float) layer->getProperty("volume"));
+            setParameterValue(paramId(i, "pan"), (float) layer->getProperty("pan"));
+            setParameterValue(paramId(i, "autoPanOn"), (bool) layer->getProperty("autoPanEnabled") ? 1.0f : 0.0f);
+            setParameterValue(paramId(i, "autoPanAmount"), (float) layer->getProperty("autoPanAmount"));
+            setParameterValue(paramId(i, "autoPanRate"), (float) layer->getProperty("autoPanRateHz"));
+            setParameterValue(paramId(i, "hp"), (float) layer->getProperty("hp"));
+            setParameterValue(paramId(i, "lp"), (float) layer->getProperty("lp"));
+            setParameterValue(paramId(i, "xfade"), (float) layer->getProperty("xfade"));
+            setParameterValue(paramId(i, "offset"), (float) layer->getProperty("startOffset"));
+
+            const auto path = layer->getProperty("filePath").toString();
+            if (path.isEmpty())
+            {
+                clearLayerFile(i);
+                continue;
+            }
+
+            const juce::File wavFile(path);
+            if (wavFile.existsAsFile())
+            {
+                juce::String loadError;
+                if (! loadFileForLayer(i, wavFile, loadError))
+                    markLayerMissingFile(i, wavFile);
+            }
+            else
+            {
+                markLayerMissingFile(i, wavFile);
+            }
+        }
+    }
+
+    resetLayerPlayback();
+    errorMessage.clear();
+    return true;
 }
 
 void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode)
@@ -316,8 +480,7 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
         }
         else if (juce::isPositiveAndBelow(index, numLayers) && file.getFullPathName().isNotEmpty())
         {
-            layers[index].displayName = "Missing file";
-            layers[index].loaded = false;
+            markLayerMissingFile(index, file);
         }
     }
 }

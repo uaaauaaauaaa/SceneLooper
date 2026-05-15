@@ -71,12 +71,17 @@ private:
     SceneLooperAudioProcessor& processor;
 
     juce::Label titleLabel;
+    juce::TextButton saveSceneButton { "Save Scene" };
+    juce::TextButton loadSceneButton { "Load Scene" };
     juce::Slider masterSlider;
     juce::Slider globalXFadeSlider;
+    std::unique_ptr<juce::FileChooser> sceneFileChooser;
     std::unique_ptr<SliderAttachment> masterAttachment;
     std::unique_ptr<SliderAttachment> globalXFadeAttachment;
 
     std::array<std::unique_ptr<LayerRow>, SceneLooperAudioProcessor::numLayers> rows;
+
+    void refreshLayerNames();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessorEditor)
 };

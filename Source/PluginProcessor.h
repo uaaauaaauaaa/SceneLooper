@@ -40,6 +40,8 @@ public:
     bool loadFileForLayer(int layerIndex, const juce::File& file, juce::String& errorMessage);
     juce::String getFileNameForLayer(int layerIndex) const;
     bool isLayerLoaded(int layerIndex) const;
+    bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
+    bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
 
     static juce::String paramId(int layerIndex, const juce::String& name);
 
@@ -83,6 +85,10 @@ private:
     double currentSampleRate = 48000.0;
 
     bool anySoloActive() const;
+    float getParameterValue(const juce::String& id) const;
+    void setParameterValue(const juce::String& id, float value);
+    void markLayerMissingFile(int layerIndex, const juce::File& file);
+    void clearLayerFile(int layerIndex);
     void resetLayerPlayback();
     void renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode);
 

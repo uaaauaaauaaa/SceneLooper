@@ -6,10 +6,12 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     setResizable(false, false);
     setResizeLimits(1480, 860, 1480, 860);
 
-    titleLabel.setText("SceneLooper v0.2 Auto Pan", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.3", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
+    addAndMakeVisible(saveSceneButton);
+    addAndMakeVisible(loadSceneButton);
 
     auto setupMacro = [] (juce::Slider& s, const juce::String& suffix)
     {
@@ -25,6 +27,43 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 
     masterAttachment = std::make_unique<SliderAttachment>(processor.apvts, "masterVolume", masterSlider);
     globalXFadeAttachment = std::make_unique<SliderAttachment>(processor.apvts, "globalXFade", globalXFadeSlider);
+
+    saveSceneButton.onClick = [this]
+    {
+        sceneFileChooser = std::make_unique<juce::FileChooser>("Save Scene", juce::File{}, "*.scene");
+        sceneFileChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& chooser)
+            {
+                auto file = chooser.getResult();
+                if (file == juce::File{})
+                    return;
+
+                if (file.getFileExtension() != ".scene")
+                    file = file.withFileExtension(".scene");
+
+                juce::String error;
+                if (! processor.saveSceneToFile(file, error))
+                    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "SceneLooper", error);
+            });
+    };
+
+    loadSceneButton.onClick = [this]
+    {
+        sceneFileChooser = std::make_unique<juce::FileChooser>("Load Scene", juce::File{}, "*.scene");
+        sceneFileChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& chooser)
+            {
+                const auto file = chooser.getResult();
+                if (! file.existsAsFile())
+                    return;
+
+                juce::String error;
+                if (! processor.loadSceneFromFile(file, error))
+                    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "SceneLooper", error);
+
+                refreshLayerNames();
+            });
+    };
 
     for (int i = 0; i < SceneLooperAudioProcessor::numLayers; ++i)
     {
@@ -62,6 +101,9 @@ void SceneLooperAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(24);
     auto top = area.removeFromTop(92);
+    auto sceneButtons = top.removeFromRight(240);
+    saveSceneButton.setBounds(sceneButtons.removeFromLeft(112).reduced(4, 28));
+    loadSceneButton.setBounds(sceneButtons.removeFromLeft(112).reduced(4, 28));
     titleLabel.setBounds(top.removeFromLeft(360));
     masterSlider.setBounds(top.removeFromLeft(120).reduced(12));
     globalXFadeSlider.setBounds(top.removeFromLeft(140).reduced(12));
@@ -72,6 +114,15 @@ void SceneLooperAudioProcessorEditor::resized()
     {
         if (row != nullptr)
             row->setBounds(rowArea.removeFromTop(rowHeight).reduced(0, 3));
+    }
+}
+
+void SceneLooperAudioProcessorEditor::refreshLayerNames()
+{
+    for (auto& row : rows)
+    {
+        if (row != nullptr)
+            row->refreshFileName();
     }
 }
 

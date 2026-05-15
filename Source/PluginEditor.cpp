@@ -6,7 +6,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     setResizable(false, false);
     setResizeLimits(1180, 860, 1180, 860);
 
-    titleLabel.setText("SceneLooper v0.1", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.1 UI fix 2", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -28,12 +28,12 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 
     for (int i = 0; i < SceneLooperAudioProcessor::numLayers; ++i)
     {
-        auto* row = new LayerRow(processor, i);
-        rows.add(row);
-        addAndMakeVisible(row);
+        rows[(size_t) i] = std::make_unique<LayerRow>(processor, i);
+        addAndMakeVisible(*rows[(size_t) i]);
     }
 
     setSize(1180, 860);
+    resized();
 }
 
 SceneLooperAudioProcessorEditor::~SceneLooperAudioProcessorEditor() = default;
@@ -68,8 +68,11 @@ void SceneLooperAudioProcessorEditor::resized()
 
     auto rowArea = area.reduced(0, 6);
     const int rowHeight = 84;
-    for (auto* row : rows)
-        row->setBounds(rowArea.removeFromTop(rowHeight).reduced(0, 3));
+    for (auto& row : rows)
+    {
+        if (row != nullptr)
+            row->setBounds(rowArea.removeFromTop(rowHeight).reduced(0, 3));
+    }
 }
 
 SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p, int index)

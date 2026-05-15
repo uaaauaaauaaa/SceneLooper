@@ -29,7 +29,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     setResizable(false, false);
     setResizeLimits(1480, 860, 1480, 860);
 
-    titleLabel.setText("SceneLooper v0.4", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.5", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -165,8 +165,46 @@ void SceneLooperAudioProcessorEditor::timerCallback()
     refreshLayerTimes();
 }
 
-SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p, int index)
+SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::WaveformPreview(SceneLooperAudioProcessor& p, int index)
     : processor(p), layerIndex(index)
+{
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+    g.setColour(juce::Colour(0xff0b1118));
+    g.fillRoundedRectangle(bounds, 4.0f);
+
+    g.setColour(juce::Colour(0xff2b3b4d));
+    g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+
+    std::array<float, SceneLooperAudioProcessor::waveformPreviewPoints> preview;
+    const bool hasPreview = processor.copyWaveformPreview(layerIndex, preview);
+    const float centreY = bounds.getCentreY();
+
+    if (! hasPreview)
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.16f));
+        g.drawLine(bounds.getX() + 4.0f, centreY, bounds.getRight() - 4.0f, centreY, 1.0f);
+        return;
+    }
+
+    g.setColour(layerIndex % 2 == 0 ? juce::Colour(0xff8b73ff) : juce::Colour(0xff57cfff));
+    const float usableHeight = bounds.getHeight() * 0.42f;
+    const float pointWidth = bounds.getWidth() / (float) SceneLooperAudioProcessor::waveformPreviewPoints;
+
+    for (int i = 0; i < SceneLooperAudioProcessor::waveformPreviewPoints; ++i)
+    {
+        const float peak = juce::jlimit(0.0f, 1.0f, preview[(size_t) i]);
+        const float x = bounds.getX() + ((float) i + 0.5f) * pointWidth;
+        const float y = peak * usableHeight;
+        g.drawVerticalLine((int) std::round(x), centreY - y, centreY + y);
+    }
+}
+
+SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p, int index)
+    : processor(p), layerIndex(index), waveformPreview(p, index)
 {
     numberLabel.setText(juce::String(index + 1), juce::dontSendNotification);
     numberLabel.setJustificationType(juce::Justification::centred);
@@ -178,6 +216,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     fileLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.82f));
     fileLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(fileLabel);
+    addAndMakeVisible(waveformPreview);
 
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
@@ -298,12 +337,14 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(42));
     loadButton.setBounds(area.removeFromLeft(82).reduced(4, 6));
-    fileLabel.setBounds(area.removeFromLeft(120));
-    lengthLabel.setBounds(area.removeFromLeft(106));
-    remainLabel.setBounds(area.removeFromLeft(110));
+    auto fileArea = area.removeFromLeft(210);
+    fileLabel.setBounds(fileArea.removeFromTop(20));
+    waveformPreview.setBounds(fileArea.reduced(0, 3));
+    lengthLabel.setBounds(area.removeFromLeft(92));
+    remainLabel.setBounds(area.removeFromLeft(98));
     onButton.setBounds(area.removeFromLeft(58));
     soloButton.setBounds(area.removeFromLeft(64));
-    autoPanButton.setBounds(area.removeFromLeft(84));
+    autoPanButton.setBounds(area.removeFromLeft(80));
 
     auto placeControl = [&area] (juce::Label& label, juce::Slider& slider, int width)
     {
@@ -312,19 +353,20 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
         slider.setBounds(column);
     };
 
-    placeControl(volumeLabel, volumeSlider, 92);
-    placeControl(panLabel, panSlider, 82);
-    placeControl(autoPanAmountLabel, autoPanAmountSlider, 82);
-    placeControl(autoPanRateLabel, autoPanRateSlider, 86);
-    placeControl(hpLabel, hpSlider, 92);
-    placeControl(lpLabel, lpSlider, 92);
-    placeControl(xfadeLabel, xfadeSlider, 92);
-    placeControl(offsetLabel, offsetSlider, 112);
+    placeControl(volumeLabel, volumeSlider, 84);
+    placeControl(panLabel, panSlider, 74);
+    placeControl(autoPanAmountLabel, autoPanAmountSlider, 76);
+    placeControl(autoPanRateLabel, autoPanRateSlider, 78);
+    placeControl(hpLabel, hpSlider, 82);
+    placeControl(lpLabel, lpSlider, 82);
+    placeControl(xfadeLabel, xfadeSlider, 82);
+    placeControl(offsetLabel, offsetSlider, 94);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()
 {
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
+    waveformPreview.repaint();
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshTimeDisplay()

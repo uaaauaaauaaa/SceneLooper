@@ -28,12 +28,24 @@ private:
         void refreshTimeDisplay();
 
     private:
+        class WaveformPreview : public juce::Component
+        {
+        public:
+            WaveformPreview(SceneLooperAudioProcessor& processor, int layerIndex);
+            void paint(juce::Graphics& g) override;
+
+        private:
+            SceneLooperAudioProcessor& processor;
+            int layerIndex = 0;
+        };
+
         SceneLooperAudioProcessor& processor;
         int layerIndex = 0;
 
         juce::Label numberLabel;
         juce::TextButton loadButton { "Load WAV" };
         juce::Label fileLabel;
+        WaveformPreview waveformPreview;
         juce::ToggleButton onButton { "On" };
         juce::ToggleButton soloButton { "Solo" };
         juce::ToggleButton autoPanButton { "AutoPan" };

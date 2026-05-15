@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -9,6 +10,7 @@ class SceneLooperAudioProcessor : public juce::AudioProcessor
 {
 public:
     static constexpr int numLayers = 8;
+    static constexpr int waveformPreviewPoints = 128;
 
     SceneLooperAudioProcessor();
     ~SceneLooperAudioProcessor() override;
@@ -43,6 +45,7 @@ public:
     bool isLayerLoaded(int layerIndex) const;
     double getLayerLengthSeconds(int layerIndex) const;
     double getLayerRemainingSeconds(int layerIndex) const;
+    bool copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const;
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
 
@@ -79,6 +82,8 @@ private:
         double autoPanPhase = 0.0;
         std::atomic<double> lengthSeconds { 0.0 };
         std::atomic<double> displayPositionSamples { 0.0 };
+        std::array<float, waveformPreviewPoints> waveformPreview {};
+        std::atomic<bool> waveformPreviewReady { false };
         OnePoleFilter hp[2];
         OnePoleFilter lp[2];
     };
@@ -94,6 +99,7 @@ private:
     void setParameterValue(const juce::String& id, float value);
     void markLayerMissingFile(int layerIndex, const juce::File& file);
     void clearLayerFile(int layerIndex);
+    void buildWaveformPreview(int layerIndex);
     void resetLayerPlayback();
     void renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode);
 

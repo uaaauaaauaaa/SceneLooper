@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 
 #include <cmath>
+#include <cstdint>
 
 SceneLooperAudioProcessor::SceneLooperAudioProcessor()
     : AudioProcessor(BusesProperties()
@@ -87,6 +88,8 @@ void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce:
     layer.audio.setSize(0, 0);
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
+    layer.waveformPreview.fill(0.0f);
+    layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
@@ -101,6 +104,8 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
     layer.audio.setSize(0, 0);
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
+    layer.waveformPreview.fill(0.0f);
+    layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
 
 const juce::String SceneLooperAudioProcessor::getName() const { return JucePlugin_Name; }
@@ -177,6 +182,12 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
         return false;
     }
 
+    if (reader->lengthInSamples <= 0)
+    {
+        errorMessage = "Empty WAV";
+        return false;
+    }
+
     juce::AudioBuffer<float> newBuffer((int) reader->numChannels, (int) reader->lengthInSamples);
     reader->read(&newBuffer, 0, (int) reader->lengthInSamples, 0, true, true);
 
@@ -188,9 +199,47 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
     layer.position = apvts.getRawParameterValue(paramId(layerIndex, "offset"))->load() * currentSampleRate;
     layer.lengthSeconds.store((double) reader->lengthInSamples / reader->sampleRate, std::memory_order_relaxed);
     layer.displayPositionSamples.store(std::fmod(layer.position, (double) layer.audio.getNumSamples()), std::memory_order_relaxed);
+    buildWaveformPreview(layerIndex);
 
     errorMessage.clear();
     return true;
+}
+
+void SceneLooperAudioProcessor::buildWaveformPreview(int layerIndex)
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return;
+
+    auto& layer = layers[layerIndex];
+    layer.waveformPreview.fill(0.0f);
+
+    const int numSamples = layer.audio.getNumSamples();
+    const int numChannels = layer.audio.getNumChannels();
+    if (numSamples <= 0 || numChannels <= 0)
+    {
+        layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
+        return;
+    }
+
+    for (int point = 0; point < waveformPreviewPoints; ++point)
+    {
+        const int start = (int) (((int64_t) point * numSamples) / waveformPreviewPoints);
+        const int end = juce::jmax(start + 1, (int) (((int64_t) (point + 1) * numSamples) / waveformPreviewPoints));
+        float peak = 0.0f;
+
+        for (int sample = start; sample < juce::jmin(end, numSamples); ++sample)
+        {
+            float summed = 0.0f;
+            for (int channel = 0; channel < numChannels; ++channel)
+                summed += std::abs(layer.audio.getSample(channel, sample));
+
+            peak = juce::jmax(peak, summed / (float) numChannels);
+        }
+
+        layer.waveformPreview[(size_t) point] = juce::jlimit(0.0f, 1.0f, peak);
+    }
+
+    layer.waveformPreviewReady.store(true, std::memory_order_relaxed);
 }
 
 juce::String SceneLooperAudioProcessor::getFileNameForLayer(int layerIndex) const
@@ -224,6 +273,20 @@ double SceneLooperAudioProcessor::getLayerRemainingSeconds(int layerIndex) const
 
     const auto positionSeconds = layers[layerIndex].displayPositionSamples.load(std::memory_order_relaxed) / currentSampleRate;
     return juce::jlimit(0.0, lengthSeconds, lengthSeconds - std::fmod(positionSeconds, lengthSeconds));
+}
+
+bool SceneLooperAudioProcessor::copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers)
+        || ! layers[layerIndex].loaded
+        || ! layers[layerIndex].waveformPreviewReady.load(std::memory_order_relaxed))
+    {
+        destination.fill(0.0f);
+        return false;
+    }
+
+    destination = layers[layerIndex].waveformPreview;
+    return true;
 }
 
 bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const

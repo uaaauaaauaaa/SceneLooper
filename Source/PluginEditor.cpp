@@ -5,7 +5,6 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 {
     setResizable(false, false);
     setResizeLimits(1180, 860, 1180, 860);
-    setSize(1180, 860);
 
     titleLabel.setText("SceneLooper v0.1", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
@@ -33,6 +32,8 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
         rows.add(row);
         addAndMakeVisible(row);
     }
+
+    setSize(1180, 860);
 }
 
 SceneLooperAudioProcessorEditor::~SceneLooperAudioProcessorEditor() = default;

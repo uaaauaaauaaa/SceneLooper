@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <functional>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
@@ -27,12 +26,8 @@ private:
         void resized() override;
         void paint(juce::Graphics& g) override;
         void paintOverChildren(juce::Graphics& g) override;
-        void mouseDown(const juce::MouseEvent& event) override;
         void refreshFileName();
         void refreshTimeDisplay();
-        void setSelected(bool shouldBeSelected);
-
-        std::function<void(int)> onSelected;
 
     private:
         class WaveformPreview : public juce::Component
@@ -52,7 +47,6 @@ private:
 
         SceneLooperAudioProcessor& processor;
         int layerIndex = 0;
-        bool selected = false;
 
         juce::Label numberLabel;
         juce::TextButton loadButton { "Load WAV" };
@@ -119,29 +113,14 @@ private:
     juce::Label randomizationLabel;
     juce::Label randomStartLabel;
     juce::Label masterMeterLabel;
-    juce::Label detailTitleLabel;
-    juce::Label detailFileLabel;
-    juce::Label detailMixLabel;
-    juce::Label detailMotionLabel;
-    juce::Label detailFilterLabel;
     juce::TextButton saveSceneButton { "Save Scene" };
     juce::TextButton loadSceneButton { "Load Scene" };
     juce::TextButton randomizeButton { "Randomize" };
-    juce::ToggleButton detailAutoPanButton { "AutoPan" };
     juce::Slider masterSlider;
     juce::Slider globalXFadeSlider;
     juce::Slider masterLowCutSlider;
     juce::Slider masterHighCutSlider;
     juce::Slider randomStartSlider;
-    juce::Slider detailWidthSlider;
-    juce::Slider detailAutoPanAmountSlider;
-    juce::Slider detailAutoPanRateSlider;
-    juce::Slider detailSpeedSlider;
-    juce::Slider detailDriftSlider;
-    juce::Slider detailHpSlider;
-    juce::Slider detailLpSlider;
-    juce::Slider detailXFadeSlider;
-    juce::Slider detailOffsetSlider;
     std::unique_ptr<juce::LookAndFeel_V4> lookAndFeel;
     std::unique_ptr<juce::FileChooser> sceneFileChooser;
     std::unique_ptr<SliderAttachment> masterAttachment;
@@ -149,25 +128,11 @@ private:
     std::unique_ptr<SliderAttachment> masterLowCutAttachment;
     std::unique_ptr<SliderAttachment> masterHighCutAttachment;
     std::unique_ptr<SliderAttachment> randomStartAttachment;
-    std::unique_ptr<ButtonAttachment> detailAutoPanAttachment;
-    std::unique_ptr<SliderAttachment> detailWidthAttachment;
-    std::unique_ptr<SliderAttachment> detailAutoPanAmountAttachment;
-    std::unique_ptr<SliderAttachment> detailAutoPanRateAttachment;
-    std::unique_ptr<SliderAttachment> detailSpeedAttachment;
-    std::unique_ptr<SliderAttachment> detailDriftAttachment;
-    std::unique_ptr<SliderAttachment> detailHpAttachment;
-    std::unique_ptr<SliderAttachment> detailLpAttachment;
-    std::unique_ptr<SliderAttachment> detailXFadeAttachment;
-    std::unique_ptr<SliderAttachment> detailOffsetAttachment;
 
     std::array<std::unique_ptr<LayerRow>, SceneLooperAudioProcessor::numLayers> rows;
-    int selectedLayer = 0;
 
     void refreshLayerNames();
     void refreshLayerTimes();
-    void selectLayer(int layerIndex);
-    void updateDetailAttachments();
-    void updateDetailText();
     void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessorEditor)

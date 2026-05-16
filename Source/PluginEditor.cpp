@@ -19,10 +19,10 @@ const juce::Colour mutedText { 0xffa8bab3 };
 constexpr int editorWidth = 1480;
 constexpr int editorHeight = 840;
 constexpr int outerMargin = 12;
-constexpr int topPanelHeight = 150;
+constexpr int topPanelHeight = 142;
 constexpr int headerHeight = 24;
 constexpr int bottomStripHeight = 74;
-constexpr int rowHeight = 70;
+constexpr int rowHeight = 71;
 
 juce::Colour layerColour(int layerIndex)
 {
@@ -105,10 +105,10 @@ public:
         const auto centre = r.getCentre();
         const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
 
-        g.setColour(accent.withAlpha(0.16f));
-        g.fillEllipse(r.expanded(7.0f));
-        g.setColour(accent.withAlpha(0.08f));
-        g.fillEllipse(r.expanded(11.0f));
+        g.setColour(accent.withAlpha(0.20f));
+        g.fillEllipse(r.expanded(8.0f));
+        g.setColour(accent.withAlpha(0.10f));
+        g.fillEllipse(r.expanded(13.0f));
 
         g.setColour(juce::Colour(0xff02090b).withAlpha(0.82f));
         g.fillEllipse(r.translated(0.0f, 3.0f));
@@ -121,8 +121,8 @@ public:
         g.setColour(juce::Colours::white.withAlpha(0.08f));
         g.fillEllipse(r.reduced(radius * 0.16f).withTrimmedBottom(radius * 0.42f));
 
-        g.setColour(accent.withAlpha(0.35f));
-        g.drawEllipse(r.expanded(1.2f), 1.0f);
+        g.setColour(accent.withAlpha(0.45f));
+        g.drawEllipse(r.expanded(1.5f), 1.1f);
         g.setColour(Theme::stroke.withAlpha(0.72f));
         g.drawEllipse(r, 0.8f);
 
@@ -136,10 +136,10 @@ public:
         juce::Path value;
         value.addCentredArc(centre.x, centre.y, radius - 4.0f, radius - 4.0f, 0.0f,
                             rotaryStartAngle, angle, true);
-        g.setColour(accent.withAlpha(0.22f));
-        g.strokePath(value, juce::PathStrokeType(9.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(accent.withAlpha(0.28f));
+        g.strokePath(value, juce::PathStrokeType(10.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         g.setColour(accent);
-        g.strokePath(value, juce::PathStrokeType(3.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.strokePath(value, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         const auto indicator = centre + juce::Point<float>(std::cos(angle - juce::MathConstants<float>::halfPi),
                                                            std::sin(angle - juce::MathConstants<float>::halfPi)) * (radius - 9.0f);
@@ -177,9 +177,11 @@ public:
         if (shouldDrawButtonAsHighlighted)
             base = base.brighter(0.12f);
 
-        Theme::fillVerticalGradient(g, bounds, base.brighter(0.10f), Theme::panelDeep);
-        g.setColour((button.getToggleState() ? Theme::purple : Theme::stroke).withAlpha(0.9f));
-        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        Theme::fillVerticalGradient(g, bounds, base.brighter(0.18f), Theme::panelDeep);
+        g.setColour(Theme::cyan.withAlpha(0.06f));
+        g.fillRoundedRectangle(bounds.reduced(2.0f).withTrimmedBottom(bounds.getHeight() * 0.55f), 5.0f);
+        g.setColour((button.getToggleState() ? Theme::purple : Theme::stroke).withAlpha(0.95f));
+        g.drawRoundedRectangle(bounds, 6.0f, 1.1f);
     }
 
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) override
@@ -444,6 +446,26 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawLine(76.0f, 43.0f, 85.0f, 62.0f, 1.5f);
     g.drawLine(55.0f, 54.0f, 85.0f, 62.0f, 0.8f);
 
+    auto masterPanel = topPanel.withTrimmedTop(62.0f).reduced(12.0f, 6.0f);
+    juce::ColourGradient masterGradient(juce::Colour(0xff10383c).withAlpha(0.72f), masterPanel.getX(), masterPanel.getY(),
+                                        juce::Colour(0xff061417).withAlpha(0.84f), masterPanel.getRight(), masterPanel.getBottom(), false);
+    g.setGradientFill(masterGradient);
+    g.fillRoundedRectangle(masterPanel, 7.0f);
+    g.setColour(Theme::cyan.withAlpha(0.08f));
+    g.fillRoundedRectangle(masterPanel.reduced(2.0f).withTrimmedBottom(masterPanel.getHeight() * 0.50f), 6.0f);
+    g.setColour(Theme::stroke.withAlpha(0.58f));
+    g.drawRoundedRectangle(masterPanel, 7.0f, 0.9f);
+
+    auto sceneGroup = sceneNameLabel.getBounds().getUnion(loadSceneButton.getBounds()).getUnion(saveSceneButton.getBounds()).toFloat().expanded(16.0f, 10.0f);
+    juce::ColourGradient sceneGroupGradient(juce::Colour(0xff0b2e34), sceneGroup.getX(), sceneGroup.getY(),
+                                            juce::Colour(0xff061316), sceneGroup.getRight(), sceneGroup.getBottom(), false);
+    g.setGradientFill(sceneGroupGradient);
+    g.fillRoundedRectangle(sceneGroup, 8.0f);
+    g.setColour(Theme::cyan.withAlpha(0.07f));
+    g.fillRoundedRectangle(sceneGroup.reduced(2.0f).withTrimmedBottom(sceneGroup.getHeight() * 0.55f), 7.0f);
+    g.setColour(Theme::stroke.withAlpha(0.76f));
+    g.drawRoundedRectangle(sceneGroup, 8.0f, 1.0f);
+
     auto sceneBox = sceneNameLabel.getBounds().toFloat().expanded(22.0f, 9.0f);
     juce::ColourGradient sceneGradient(juce::Colour(0xff0d3338), sceneBox.getX(), sceneBox.getY(),
                                        juce::Colour(0xff071417), sceneBox.getRight(), sceneBox.getBottom(), false);
@@ -475,7 +497,19 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(Theme::stroke.withAlpha(0.88f));
     g.drawRoundedRectangle(bottomStrip, 9.0f, 1.0f);
 
+    auto randomPanel = bottomStrip.withWidth(355.0f).reduced(10.0f, 10.0f);
+    juce::ColourGradient randomGradient(juce::Colour(0xff113d42), randomPanel.getX(), randomPanel.getY(),
+                                        juce::Colour(0xff07171b), randomPanel.getRight(), randomPanel.getBottom(), false);
+    g.setGradientFill(randomGradient);
+    g.fillRoundedRectangle(randomPanel, 7.0f);
+    g.setColour(Theme::cyan.withAlpha(0.08f));
+    g.fillRoundedRectangle(randomPanel.reduced(2.0f).withTrimmedBottom(randomPanel.getHeight() * 0.54f), 6.0f);
+    g.setColour(Theme::stroke.withAlpha(0.62f));
+    g.drawRoundedRectangle(randomPanel, 7.0f, 0.9f);
+
     auto dice = bottomStrip.withWidth(58.0f).reduced(15.0f, 18.0f);
+    g.setColour(Theme::cyan.withAlpha(0.12f));
+    g.fillRoundedRectangle(dice.expanded(7.0f, 5.0f), 6.0f);
     g.setColour(Theme::text.withAlpha(0.82f));
     g.drawRoundedRectangle(dice, 4.0f, 1.0f);
     g.drawLine(dice.getX(), dice.getCentreY(), dice.getCentreX(), dice.getBottom(), 1.0f);
@@ -483,9 +517,9 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.fillEllipse(dice.getX() + 7.0f, dice.getY() + 7.0f, 3.0f, 3.0f);
     g.fillEllipse(dice.getRight() - 10.0f, dice.getY() + 12.0f, 3.0f, 3.0f);
 
-    auto meterPanel = bottomStrip.withX(520.0f).withWidth(390.0f).reduced(8.0f, 8.0f);
-    auto meter = meterPanel.withTrimmedTop(24.0f).withTrimmedBottom(16.0f);
-    const int bars = 56;
+    auto meterPanel = bottomStrip.withX(500.0f).withWidth(430.0f).reduced(8.0f, 8.0f);
+    auto meter = meterPanel.withTrimmedTop(23.0f).withTrimmedBottom(15.0f);
+    const int bars = 64;
     const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
     for (int i = 0; i < bars; ++i)
     {
@@ -495,7 +529,7 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
         const auto barColour = Theme::purple.interpolatedWith(Theme::cyan, t);
         g.setColour(barColour.withAlpha(active ? 0.92f : 0.18f));
         g.fillRoundedRectangle(meter.getX() + t * meter.getWidth(), meter.getBottom() - barHeight,
-                               3.0f, barHeight, 1.5f);
+                               3.4f, barHeight, 1.7f);
     }
 
     g.setColour(Theme::mutedText.withAlpha(0.76f));
@@ -511,37 +545,45 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(Theme::text.withAlpha(0.82f));
     g.setFont(juce::Font(11.0f, juce::Font::bold));
-    g.drawFittedText(levelToDbText(masterLevel), bottomStrip.withX(905.0f).withWidth(80.0f).toNearestInt().reduced(0, 30),
+    g.drawFittedText(levelToDbText(masterLevel), bottomStrip.withX(930.0f).withWidth(82.0f).toNearestInt().reduced(0, 30),
                      juce::Justification::centredLeft, 1);
 
     juce::Path waveA;
     juce::Path waveB;
-    auto waveArea = bottomStrip.withTrimmedLeft(980.0f).reduced(18.0f, 15.0f);
+    juce::Path waveC;
+    auto waveArea = bottomStrip.withTrimmedLeft(1015.0f).reduced(16.0f, 12.0f);
     for (int i = 0; i < 220; ++i)
     {
         const float t = (float) i / 219.0f;
         const float x = waveArea.getX() + t * waveArea.getWidth();
         const float yA = waveArea.getCentreY() + std::sin(t * 17.0f + 0.5f) * 15.0f + std::sin(t * 41.0f) * 5.0f;
         const float yB = waveArea.getCentreY() + std::sin(t * 14.0f + 2.1f) * 18.0f;
+        const float yC = waveArea.getCentreY() + std::sin(t * 22.0f + 1.4f) * 10.0f + std::sin(t * 9.0f) * 12.0f;
         if (i == 0)
         {
             waveA.startNewSubPath(x, yA);
             waveB.startNewSubPath(x, yB);
+            waveC.startNewSubPath(x, yC);
         }
         else
         {
             waveA.lineTo(x, yA);
             waveB.lineTo(x, yB);
+            waveC.lineTo(x, yC);
         }
     }
     g.setColour(Theme::purple.withAlpha(0.18f));
     g.strokePath(waveA, juce::PathStrokeType(5.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     g.setColour(Theme::cyan.withAlpha(0.18f));
     g.strokePath(waveB, juce::PathStrokeType(5.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(Theme::blue.withAlpha(0.14f));
+    g.strokePath(waveC, juce::PathStrokeType(4.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     g.setColour(Theme::purple.withAlpha(0.78f));
     g.strokePath(waveA, juce::PathStrokeType(1.9f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     g.setColour(Theme::cyan.withAlpha(0.78f));
     g.strokePath(waveB, juce::PathStrokeType(1.9f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(Theme::blue.withAlpha(0.50f));
+    g.strokePath(waveC, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     auto bodyArea = getLocalBounds().reduced(Theme::outerMargin);
     bodyArea.removeFromTop(Theme::topPanelHeight);
@@ -584,7 +626,7 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     auto drawMacroValue = [&g] (juce::Slider& slider, juce::Colour accent)
     {
         auto value = slider.getBounds().withSizeKeepingCentre(86, 18);
-        value.setY(slider.getBottom() - 18);
+        value.setY(slider.getBottom() - 22);
         drawValuePill(g, value, sliderValueText(slider), accent, 11.0f);
     };
 
@@ -618,13 +660,13 @@ void SceneLooperAudioProcessorEditor::resized()
     loadSceneButton.setBounds(sceneButtonRow.removeFromLeft(140).reduced(5, 0));
     saveSceneButton.setBounds(sceneButtonRow.removeFromLeft(140).reduced(5, 0));
 
-    auto macroArea = fullTop.withTrimmedTop(66).reduced(32, 2);
+    auto macroArea = fullTop.withTrimmedTop(60).reduced(32, 2);
     auto placeMacro = [&macroArea] (juce::Label& label, juce::Slider& slider, int width)
     {
         auto column = macroArea.removeFromLeft(width).reduced(10, 0);
         label.setBounds(column.removeFromTop(16));
-        auto knobArea = column.removeFromTop(62);
-        slider.setBounds(knobArea.withSizeKeepingCentre(66, 66));
+        auto knobArea = column.removeFromTop(68);
+        slider.setBounds(knobArea.withSizeKeepingCentre(70, 70));
     };
     placeMacro(masterLabel, masterSlider, 346);
     placeMacro(globalXFadeLabel, globalXFadeSlider, 356);
@@ -682,13 +724,13 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
     auto bounds = getLocalBounds().toFloat().reduced(1.0f);
     const auto accent = Theme::layerColour(layerIndex);
 
-    juce::ColourGradient bg(juce::Colour(0xff031114), bounds.getX(), bounds.getY(),
-                            juce::Colour(0xff09252a), bounds.getRight(), bounds.getBottom(), false);
-    bg.addColour(0.55, accent.withAlpha(0.12f));
+    juce::ColourGradient bg(juce::Colour(0xff020c0e), bounds.getX(), bounds.getY(),
+                            juce::Colour(0xff0a2a2f), bounds.getRight(), bounds.getBottom(), false);
+    bg.addColour(0.48, accent.withAlpha(0.18f));
     g.setGradientFill(bg);
     g.fillRoundedRectangle(bounds, 5.0f);
 
-    g.setColour(accent.withAlpha(0.22f));
+    g.setColour(accent.withAlpha(0.30f));
     g.drawRoundedRectangle(bounds, 5.0f, 1.0f);
 
     std::array<float, SceneLooperAudioProcessor::waveformPreviewPoints> preview;
@@ -697,12 +739,12 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
     if (! hasPreview)
     {
-        g.setColour(accent.withAlpha(0.18f));
-        g.drawLine(bounds.getX() + 5.0f, centreY, bounds.getRight() - 5.0f, centreY, 1.4f);
+        g.setColour(accent.withAlpha(0.24f));
+        g.drawLine(bounds.getX() + 5.0f, centreY, bounds.getRight() - 5.0f, centreY, 1.8f);
         return;
     }
 
-    const float usableHeight = bounds.getHeight() * 0.47f;
+    const float usableHeight = bounds.getHeight() * 0.56f;
     const float pointWidth = bounds.getWidth() / (float) SceneLooperAudioProcessor::waveformPreviewPoints;
     const float displayGain = processor.getLayerWaveformDisplayGain(layerIndex);
 
@@ -712,19 +754,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
         const float x = bounds.getX() + ((float) i + 0.5f) * pointWidth;
         const float y = peak * usableHeight;
         const auto waveColour = accent.interpolatedWith(Theme::cyan, (float) i / (float) SceneLooperAudioProcessor::waveformPreviewPoints);
-        g.setColour(waveColour.withAlpha(0.18f));
-        g.fillRoundedRectangle(x - 1.4f, centreY - y - 1.5f, 2.8f, y * 2.0f + 3.0f, 1.4f);
-        g.setColour(waveColour.withAlpha(0.92f));
-        g.fillRoundedRectangle(x - 0.75f, centreY - y, 1.5f, y * 2.0f, 0.75f);
+        g.setColour(waveColour.withAlpha(0.22f));
+        g.fillRoundedRectangle(x - 1.75f, centreY - y - 1.8f, 3.5f, y * 2.0f + 3.6f, 1.8f);
+        g.setColour(waveColour.withAlpha(0.96f));
+        g.fillRoundedRectangle(x - 0.9f, centreY - y, 1.8f, y * 2.0f, 0.9f);
     }
 
     const auto cursorFraction = processor.getLayerPlaybackPositionFraction(layerIndex);
     if (cursorFraction >= 0.0)
     {
         const float cursorX = bounds.getX() + bounds.getWidth() * (float) cursorFraction;
-        g.setColour(Theme::text.withAlpha(0.24f));
-        g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 4.0f);
-        g.setColour(Theme::text.withAlpha(0.96f));
+        g.setColour(Theme::cyan.withAlpha(0.32f));
+        g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 5.0f);
+        g.setColour(Theme::text.withAlpha(0.98f));
         g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 1.8f);
         g.setColour(accent.withAlpha(0.9f));
         g.fillEllipse(cursorX - 2.0f, bounds.getY() + 1.0f, 4.0f, 4.0f);
@@ -949,8 +991,23 @@ void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics& g)
 
     g.setColour(accent.withAlpha(0.95f));
     g.fillRoundedRectangle(r.withWidth(5.0f).reduced(0.0f, 2.0f), 7.0f);
-    g.setColour(accent.withAlpha(0.12f));
-    g.fillRoundedRectangle(r.withWidth(66.0f).reduced(0.0f, 2.0f), 7.0f);
+    juce::ColourGradient numberGradient(accent.withAlpha(0.22f), r.getX(), r.getY(),
+                                        Theme::panelDeep.withAlpha(0.18f), r.getX() + 72.0f, r.getBottom(), false);
+    g.setGradientFill(numberGradient);
+    g.fillRoundedRectangle(r.withWidth(72.0f).reduced(0.0f, 2.0f), 7.0f);
+
+    auto fileBlock = juce::Rectangle<float>(54.0f, 6.0f, 540.0f, r.getHeight() - 13.0f);
+    juce::ColourGradient fileGradient(juce::Colour(0xff07181b), fileBlock.getX(), fileBlock.getY(),
+                                      juce::Colour(0xff041012), fileBlock.getRight(), fileBlock.getBottom(), false);
+    fileGradient.addColour(0.50, accent.withAlpha(0.065f));
+    g.setGradientFill(fileGradient);
+    g.fillRoundedRectangle(fileBlock, 6.0f);
+    g.setColour(accent.withAlpha(0.22f));
+    g.drawRoundedRectangle(fileBlock, 6.0f, 0.8f);
+
+    auto controlBlock = juce::Rectangle<float>(604.0f, 6.0f, r.getWidth() - 612.0f, r.getHeight() - 13.0f);
+    g.setColour(juce::Colour(0xff051417).withAlpha(0.38f));
+    g.fillRoundedRectangle(controlBlock, 6.0f);
 
     g.setColour(Theme::stroke.withAlpha(0.38f));
     g.drawRoundedRectangle(r.reduced(0.5f, 1.0f), 7.0f, 0.8f);
@@ -986,7 +1043,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     numberLabel.setBounds(area.removeFromLeft(46));
 
     auto fileArea = area.removeFromLeft(540).reduced(2, 0);
-    auto fileTop = fileArea.removeFromTop(20);
+    auto fileTop = fileArea.removeFromTop(18);
     loadButton.setBounds(fileTop.removeFromRight(62).reduced(3, 1));
     auto timeArea = fileTop.removeFromRight(142).reduced(2, 0);
     lengthLabel.setBounds(timeArea.removeFromLeft(68));
@@ -1000,12 +1057,12 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto placeControl = [&area] (juce::Slider& slider, int width)
     {
         auto column = area.removeFromLeft(width).reduced(1, 0);
-        auto knobArea = column.removeFromTop(42);
-        slider.setBounds(knobArea.withSizeKeepingCentre(40, 40));
+        auto knobArea = column.removeFromTop(43);
+        slider.setBounds(knobArea.withSizeKeepingCentre(42, 42));
     };
 
     auto volumeColumn = area.removeFromLeft(90).reduced(2, 0);
-    volumeSlider.setBounds(volumeColumn.removeFromTop(42).reduced(0, 2));
+    volumeSlider.setBounds(volumeColumn.removeFromTop(43).reduced(0, 2));
     placeControl(panSlider, 62);
     autoPanButton.setBounds(area.removeFromLeft(40).reduced(2, 18));
     placeControl(autoPanAmountSlider, 60);

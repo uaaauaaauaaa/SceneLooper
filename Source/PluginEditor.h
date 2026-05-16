@@ -12,6 +12,7 @@ public:
     ~SceneLooperAudioProcessorEditor() override;
 
     void paint(juce::Graphics&) override;
+    void paintOverChildren(juce::Graphics&) override;
     void resized() override;
 
 private:
@@ -24,6 +25,7 @@ private:
         LayerRow(SceneLooperAudioProcessor& processor, int layerIndex);
         void resized() override;
         void paint(juce::Graphics& g) override;
+        void paintOverChildren(juce::Graphics& g) override;
         void refreshFileName();
         void refreshTimeDisplay();
 

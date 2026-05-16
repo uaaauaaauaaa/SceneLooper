@@ -27,9 +27,9 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     : AudioProcessorEditor(&p), processor(p)
 {
     setResizable(false, false);
-    setResizeLimits(1480, 860, 1480, 860);
+    setResizeLimits(1640, 900, 1640, 900);
 
-    titleLabel.setText("SceneLooper v0.6", juce::dontSendNotification);
+    titleLabel.setText("SceneLooper v0.7", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
@@ -95,7 +95,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
         addAndMakeVisible(*rows[(size_t) i]);
     }
 
-    setSize(1480, 860);
+    setSize(1640, 900);
     resized();
     startTimerHz(20);
 }
@@ -134,7 +134,7 @@ void SceneLooperAudioProcessorEditor::resized()
     globalXFadeSlider.setBounds(top.removeFromLeft(140).reduced(12));
 
     auto rowArea = area.reduced(0, 6);
-    const int rowHeight = 84;
+    const int rowHeight = 88;
     for (auto& row : rows)
     {
         if (row != nullptr)
@@ -213,11 +213,21 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseDown(const juce::MouseEvent& event)
 {
+    seekToMousePosition(event.position);
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseDrag(const juce::MouseEvent& event)
+{
+    seekToMousePosition(event.position);
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::seekToMousePosition(juce::Point<float> position)
+{
     auto bounds = getLocalBounds().toFloat().reduced(1.0f);
     if (bounds.getWidth() <= 0.0f)
         return;
 
-    const auto fraction = (event.position.x - bounds.getX()) / bounds.getWidth();
+    const auto fraction = (position.x - bounds.getX()) / bounds.getWidth();
     processor.seekLayerToFraction(layerIndex, juce::jlimit(0.0f, 1.0f, fraction));
     repaint();
 }
@@ -264,6 +274,9 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     setupLabel(volumeLabel, "Volume");
     setupLabel(panLabel, "Pan");
+    setupLabel(speedLabel, "Speed");
+    setupLabel(driftLabel, "Drift");
+    setupLabel(widthLabel, "Width");
     setupLabel(autoPanAmountLabel, "AP Amt");
     setupLabel(autoPanRateLabel, "AP Hz");
     setupLabel(hpLabel, "HP");
@@ -273,6 +286,9 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     addAndMakeVisible(volumeLabel);
     addAndMakeVisible(panLabel);
+    addAndMakeVisible(speedLabel);
+    addAndMakeVisible(driftLabel);
+    addAndMakeVisible(widthLabel);
     addAndMakeVisible(autoPanAmountLabel);
     addAndMakeVisible(autoPanRateLabel);
     addAndMakeVisible(hpLabel);
@@ -282,6 +298,9 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     setupSlider(volumeSlider, " dB");
     setupSlider(panSlider, "");
+    setupSlider(speedSlider, "k");
+    setupSlider(driftSlider, "%");
+    setupSlider(widthSlider, "%");
     setupSlider(autoPanAmountSlider, "");
     setupSlider(autoPanRateSlider, " Hz");
     setupSlider(hpSlider, " Hz");
@@ -289,8 +308,15 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     setupSlider(xfadeSlider, " s");
     setupSlider(offsetSlider, " s");
 
+    speedSlider.setNumDecimalPlacesToDisplay(1);
+    driftSlider.setNumDecimalPlacesToDisplay(0);
+    widthSlider.setNumDecimalPlacesToDisplay(0);
+
     addAndMakeVisible(volumeSlider);
     addAndMakeVisible(panSlider);
+    addAndMakeVisible(speedSlider);
+    addAndMakeVisible(driftSlider);
+    addAndMakeVisible(widthSlider);
     addAndMakeVisible(autoPanAmountSlider);
     addAndMakeVisible(autoPanRateSlider);
     addAndMakeVisible(hpSlider);
@@ -303,6 +329,9 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     autoPanAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanOn"), autoPanButton);
     volumeAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "volume"), volumeSlider);
     panAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "pan"), panSlider);
+    speedAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "speed"), speedSlider);
+    driftAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "drift"), driftSlider);
+    widthAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "width"), widthSlider);
     autoPanAmountAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanAmount"), autoPanAmountSlider);
     autoPanRateAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanRate"), autoPanRateSlider);
     hpAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "hp"), hpSlider);
@@ -356,14 +385,14 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(42));
     loadButton.setBounds(area.removeFromLeft(82).reduced(4, 6));
-    auto fileArea = area.removeFromLeft(228);
+    auto fileArea = area.removeFromLeft(220);
     fileLabel.setBounds(fileArea.removeFromTop(20));
     waveformPreview.setBounds(fileArea.reduced(0, 3));
-    lengthLabel.setBounds(area.removeFromLeft(82));
-    remainLabel.setBounds(area.removeFromLeft(88));
-    onButton.setBounds(area.removeFromLeft(58));
-    soloButton.setBounds(area.removeFromLeft(64));
-    autoPanButton.setBounds(area.removeFromLeft(80));
+    lengthLabel.setBounds(area.removeFromLeft(78));
+    remainLabel.setBounds(area.removeFromLeft(84));
+    onButton.setBounds(area.removeFromLeft(52));
+    soloButton.setBounds(area.removeFromLeft(58));
+    autoPanButton.setBounds(area.removeFromLeft(74));
 
     auto placeControl = [&area] (juce::Label& label, juce::Slider& slider, int width)
     {
@@ -372,14 +401,17 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
         slider.setBounds(column);
     };
 
-    placeControl(volumeLabel, volumeSlider, 84);
-    placeControl(panLabel, panSlider, 74);
-    placeControl(autoPanAmountLabel, autoPanAmountSlider, 76);
-    placeControl(autoPanRateLabel, autoPanRateSlider, 78);
-    placeControl(hpLabel, hpSlider, 82);
-    placeControl(lpLabel, lpSlider, 82);
-    placeControl(xfadeLabel, xfadeSlider, 82);
-    placeControl(offsetLabel, offsetSlider, 94);
+    placeControl(volumeLabel, volumeSlider, 78);
+    placeControl(panLabel, panSlider, 66);
+    placeControl(speedLabel, speedSlider, 70);
+    placeControl(driftLabel, driftSlider, 68);
+    placeControl(widthLabel, widthSlider, 68);
+    placeControl(autoPanAmountLabel, autoPanAmountSlider, 70);
+    placeControl(autoPanRateLabel, autoPanRateSlider, 72);
+    placeControl(hpLabel, hpSlider, 72);
+    placeControl(lpLabel, lpSlider, 72);
+    placeControl(xfadeLabel, xfadeSlider, 72);
+    placeControl(offsetLabel, offsetSlider, 86);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()

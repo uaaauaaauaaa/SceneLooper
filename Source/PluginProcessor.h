@@ -82,6 +82,7 @@ private:
         bool loaded = false;
         double position = 0.0;
         double autoPanPhase = 0.0;
+        double driftPhase = 0.0;
         std::atomic<double> lengthSeconds { 0.0 };
         std::atomic<double> displayPositionSamples { 0.0 };
         std::atomic<double> pendingSeekFraction { -1.0 };

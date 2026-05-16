@@ -4,6 +4,15 @@
 #include <cmath>
 #include <cstdint>
 
+namespace
+{
+float getFloatPropertyOrDefault(juce::DynamicObject& object, const char* name, float defaultValue)
+{
+    const auto value = object.getProperty(juce::Identifier(name));
+    return value.isVoid() ? defaultValue : (float) value;
+}
+}
+
 SceneLooperAudioProcessor::SceneLooperAudioProcessor()
     : AudioProcessor(BusesProperties()
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
@@ -35,6 +44,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SceneLooperAudioProcessor::c
             juce::NormalisableRange<float>(-60.0f, 6.0f, 0.1f), 0.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "pan", nice + "Pan",
             juce::NormalisableRange<float>(-1.0f, 1.0f, 0.001f), 0.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "speed", nice + "Speed",
+            juce::NormalisableRange<float>(38.0f, 55.0f, 0.1f), 48.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "drift", nice + "Drift",
+            juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "width", nice + "Width",
+            juce::NormalisableRange<float>(0.0f, 120.0f, 1.0f), 100.0f));
         params.push_back(std::make_unique<juce::AudioParameterBool>(prefix + "autoPanOn", nice + "AutoPan On", false));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "autoPanAmount", nice + "AutoPan Amount",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
@@ -147,6 +162,7 @@ void SceneLooperAudioProcessor::resetLayerPlayback()
         else
             layers[i].displayPositionSamples.store(0.0, std::memory_order_relaxed);
         layers[i].autoPanPhase = 0.0;
+        layers[i].driftPhase = 0.0;
         for (auto& f : layers[i].hp) f.reset();
         for (auto& f : layers[i].lp) f.reset();
     }
@@ -357,6 +373,9 @@ bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::St
         layer->setProperty("solo", getParameterValue(paramId(i, "solo")) > 0.5f);
         layer->setProperty("volume", getParameterValue(paramId(i, "volume")));
         layer->setProperty("pan", getParameterValue(paramId(i, "pan")));
+        layer->setProperty("speed", getParameterValue(paramId(i, "speed")));
+        layer->setProperty("drift", getParameterValue(paramId(i, "drift")));
+        layer->setProperty("width", getParameterValue(paramId(i, "width")));
         layer->setProperty("autoPanEnabled", getParameterValue(paramId(i, "autoPanOn")) > 0.5f);
         layer->setProperty("autoPanAmount", getParameterValue(paramId(i, "autoPanAmount")));
         layer->setProperty("autoPanRateHz", getParameterValue(paramId(i, "autoPanRate")));
@@ -423,6 +442,9 @@ bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::
             setParameterValue(paramId(i, "solo"), (bool) layer->getProperty("solo") ? 1.0f : 0.0f);
             setParameterValue(paramId(i, "volume"), (float) layer->getProperty("volume"));
             setParameterValue(paramId(i, "pan"), (float) layer->getProperty("pan"));
+            setParameterValue(paramId(i, "speed"), getFloatPropertyOrDefault(*layer, "speed", 48.0f));
+            setParameterValue(paramId(i, "drift"), getFloatPropertyOrDefault(*layer, "drift", 0.0f));
+            setParameterValue(paramId(i, "width"), getFloatPropertyOrDefault(*layer, "width", 100.0f));
             setParameterValue(paramId(i, "autoPanOn"), (bool) layer->getProperty("autoPanEnabled") ? 1.0f : 0.0f);
             setParameterValue(paramId(i, "autoPanAmount"), (float) layer->getProperty("autoPanAmount"));
             setParameterValue(paramId(i, "autoPanRate"), (float) layer->getProperty("autoPanRateHz"));
@@ -471,6 +493,9 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     const float masterVolumeDb = apvts.getRawParameterValue("masterVolume")->load();
     const float gain = juce::Decibels::decibelsToGain(layerVolumeDb + masterVolumeDb, -90.0f);
     const float pan = apvts.getRawParameterValue(paramId(layerIndex, "pan"))->load();
+    const float speedKhz = apvts.getRawParameterValue(paramId(layerIndex, "speed"))->load();
+    const float driftPercent = apvts.getRawParameterValue(paramId(layerIndex, "drift"))->load();
+    const float widthPercent = apvts.getRawParameterValue(paramId(layerIndex, "width"))->load();
     const bool autoPanOn = apvts.getRawParameterValue(paramId(layerIndex, "autoPanOn"))->load() > 0.5f;
     const float autoPanAmount = apvts.getRawParameterValue(paramId(layerIndex, "autoPanAmount"))->load();
     const float autoPanRate = apvts.getRawParameterValue(paramId(layerIndex, "autoPanRate"))->load();
@@ -478,6 +503,9 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     const float lp = apvts.getRawParameterValue(paramId(layerIndex, "lp"))->load();
     const float xfadeSeconds = apvts.getRawParameterValue(paramId(layerIndex, "xfade"))->load();
     const double autoPanPhaseDelta = juce::MathConstants<double>::twoPi * (double) autoPanRate / currentSampleRate;
+    constexpr double driftRateHz = 0.071;
+    constexpr double maxDriftDepth = 0.03;
+    const double driftPhaseDelta = juce::MathConstants<double>::twoPi * driftRateHz / currentSampleRate;
 
     const int srcChannels = layer.audio.getNumChannels();
     const int length = layer.audio.getNumSamples();
@@ -532,6 +560,15 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             right = layer.lp[1].processLowPass(right, lp, currentSampleRate);
         }
 
+        if (srcChannels > 1)
+        {
+            const float width = widthPercent * 0.01f;
+            const float mid = (left + right) * 0.5f;
+            const float side = (left - right) * 0.5f * width;
+            left = mid + side;
+            right = mid - side;
+        }
+
         if (srcChannels == 1)
         {
             float effectivePan = pan;
@@ -569,13 +606,25 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
                 layer.autoPanPhase -= juce::MathConstants<double>::twoPi;
         }
 
-        layer.position += 1.0;
-        if (layer.position >= length)
-            layer.position = (double) xfadeSamples;
+        const double drift = driftPercent > 0.0f
+            ? std::sin(layer.driftPhase) * maxDriftDepth * ((double) driftPercent / 100.0)
+            : 0.0;
+        const double playbackRatio = juce::jmax(0.01, ((double) speedKhz / 48.0) * (1.0 + drift));
 
-        displayPositionSamples += 1.0;
+        if (driftPercent > 0.0f)
+        {
+            layer.driftPhase += driftPhaseDelta;
+            if (layer.driftPhase >= juce::MathConstants<double>::twoPi)
+                layer.driftPhase -= juce::MathConstants<double>::twoPi;
+        }
+
+        layer.position += playbackRatio;
+        if (layer.position >= length)
+            layer.position = (double) xfadeSamples + std::fmod(layer.position - (double) xfadeSamples, (double) juce::jmax(1, length - xfadeSamples));
+
+        displayPositionSamples += playbackRatio;
         if (displayPositionSamples >= length)
-            displayPositionSamples = 0.0;
+            displayPositionSamples = std::fmod(displayPositionSamples, (double) length);
     }
 
     layer.displayPositionSamples.store(displayPositionSamples, std::memory_order_relaxed);

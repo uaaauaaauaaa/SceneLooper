@@ -34,10 +34,13 @@ private:
             WaveformPreview(SceneLooperAudioProcessor& processor, int layerIndex);
             void paint(juce::Graphics& g) override;
             void mouseDown(const juce::MouseEvent& event) override;
+            void mouseDrag(const juce::MouseEvent& event) override;
 
         private:
             SceneLooperAudioProcessor& processor;
             int layerIndex = 0;
+
+            void seekToMousePosition(juce::Point<float> position);
         };
 
         SceneLooperAudioProcessor& processor;
@@ -54,6 +57,9 @@ private:
         juce::Label remainLabel;
         juce::Label volumeLabel;
         juce::Label panLabel;
+        juce::Label speedLabel;
+        juce::Label driftLabel;
+        juce::Label widthLabel;
         juce::Label autoPanAmountLabel;
         juce::Label autoPanRateLabel;
         juce::Label hpLabel;
@@ -62,6 +68,9 @@ private:
         juce::Label offsetLabel;
         juce::Slider volumeSlider;
         juce::Slider panSlider;
+        juce::Slider speedSlider;
+        juce::Slider driftSlider;
+        juce::Slider widthSlider;
         juce::Slider autoPanAmountSlider;
         juce::Slider autoPanRateSlider;
         juce::Slider hpSlider;
@@ -75,6 +84,9 @@ private:
         std::unique_ptr<ButtonAttachment> autoPanAttachment;
         std::unique_ptr<SliderAttachment> volumeAttachment;
         std::unique_ptr<SliderAttachment> panAttachment;
+        std::unique_ptr<SliderAttachment> speedAttachment;
+        std::unique_ptr<SliderAttachment> driftAttachment;
+        std::unique_ptr<SliderAttachment> widthAttachment;
         std::unique_ptr<SliderAttachment> autoPanAmountAttachment;
         std::unique_ptr<SliderAttachment> autoPanRateAttachment;
         std::unique_ptr<SliderAttachment> hpAttachment;

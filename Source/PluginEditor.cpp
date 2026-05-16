@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 
 #include <cmath>
+#include <initializer_list>
 
 namespace
 {
@@ -19,10 +20,10 @@ const juce::Colour mutedText { 0xffa8bab3 };
 constexpr int editorWidth = 1480;
 constexpr int editorHeight = 840;
 constexpr int outerMargin = 12;
-constexpr int topPanelHeight = 166;
+constexpr int topPanelHeight = 150;
 constexpr int headerHeight = 0;
-constexpr int bottomStripHeight = 82;
-constexpr int rowHeight = 70;
+constexpr int bottomStripHeight = 76;
+constexpr int rowHeight = 72;
 
 juce::Colour layerColour(int layerIndex)
 {
@@ -67,6 +68,25 @@ void drawSmallCaption(juce::Graphics& g, juce::Rectangle<int> bounds, const juce
     g.setColour(Theme::mutedText.withAlpha(0.70f));
     g.setFont(juce::Font(7.8f, juce::Font::bold));
     g.drawFittedText(text.toUpperCase(), bounds, juce::Justification::centred, 1);
+}
+
+void drawGroupTitle(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& text, juce::Colour accent)
+{
+    g.setColour(accent.withAlpha(0.52f));
+    g.fillRoundedRectangle(bounds.withHeight(14.0f), 5.0f);
+    g.setColour(Theme::text.withAlpha(0.78f));
+    g.setFont(juce::Font(8.4f, juce::Font::bold));
+    g.drawFittedText(text.toUpperCase(), bounds.withHeight(14.0f).toNearestInt().reduced(5, 0),
+                     juce::Justification::centredLeft, 1);
+}
+
+juce::Rectangle<float> unionOf(std::initializer_list<juce::Rectangle<int>> rectangles)
+{
+    auto result = rectangles.begin()->toFloat();
+    for (const auto& rectangle : rectangles)
+        result = result.getUnion(rectangle.toFloat());
+
+    return result;
 }
 
 juce::String sliderValueText(juce::Slider& slider)
@@ -971,7 +991,13 @@ void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics& g)
     g.setGradientFill(numberGradient);
     g.fillRoundedRectangle(r.withWidth(76.0f).reduced(0.0f, 3.0f), 8.0f);
 
-    auto fileBlock = juce::Rectangle<float>(56.0f, 7.0f, 548.0f, r.getHeight() - 15.0f);
+    auto fileBlock = fileLabel.getBounds()
+                         .getUnion(waveformPreview.getBounds())
+                         .getUnion(loadButton.getBounds())
+                         .getUnion(lengthLabel.getBounds())
+                         .getUnion(remainLabel.getBounds())
+                         .toFloat()
+                         .expanded(5.0f, 5.0f);
     juce::ColourGradient fileGradient(juce::Colour(0xff0a2428), fileBlock.getX(), fileBlock.getY(),
                                       juce::Colour(0xff02090c), fileBlock.getRight(), fileBlock.getBottom(), false);
     fileGradient.addColour(0.50, accent.withAlpha(0.12f));
@@ -982,15 +1008,34 @@ void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics& g)
     g.setColour(accent.withAlpha(0.30f));
     g.drawRoundedRectangle(fileBlock, 8.0f, 0.9f);
 
-    auto switchBlock = juce::Rectangle<float>(608.0f, 10.0f, 72.0f, r.getHeight() - 20.0f);
-    g.setColour(juce::Colour(0xff061719).withAlpha(0.56f));
+    auto switchBlock = onButton.getBounds().getUnion(soloButton.getBounds()).toFloat().expanded(5.0f, 10.0f);
+    g.setColour(juce::Colour(0xff061719).withAlpha(0.64f));
     g.fillRoundedRectangle(switchBlock, 8.0f);
+    g.setColour(Theme::stroke.withAlpha(0.28f));
+    g.drawRoundedRectangle(switchBlock, 8.0f, 0.8f);
 
-    auto controlBlock = juce::Rectangle<float>(682.0f, 7.0f, r.getWidth() - 690.0f, r.getHeight() - 15.0f);
-    g.setColour(juce::Colour(0xff051417).withAlpha(0.48f));
-    g.fillRoundedRectangle(controlBlock, 8.0f);
-    g.setColour(Theme::stroke.withAlpha(0.22f));
-    g.drawRoundedRectangle(controlBlock, 8.0f, 0.7f);
+    auto drawControlGroup = [&g, accent] (juce::Rectangle<float> group, const juce::String& title, float accentMix)
+    {
+        auto groupAccent = accent.interpolatedWith(Theme::cyan, accentMix);
+        juce::ColourGradient groupGradient(juce::Colour(0xff092529).withAlpha(0.70f), group.getX(), group.getY(),
+                                           juce::Colour(0xff030b0e).withAlpha(0.82f), group.getRight(), group.getBottom(), false);
+        groupGradient.addColour(0.45, groupAccent.withAlpha(0.08f));
+        g.setGradientFill(groupGradient);
+        g.fillRoundedRectangle(group, 8.0f);
+        g.setColour(groupAccent.withAlpha(0.055f));
+        g.fillRoundedRectangle(group.reduced(2.0f).withTrimmedBottom(group.getHeight() * 0.60f), 7.0f);
+        g.setColour(groupAccent.withAlpha(0.22f));
+        g.drawRoundedRectangle(group, 8.0f, 0.85f);
+        drawGroupTitle(g, group.reduced(6.0f, 4.0f), title, groupAccent);
+    };
+
+    auto mixGroup = unionOf({ volumeSlider.getBounds(), panSlider.getBounds(), widthSlider.getBounds() }).expanded(8.0f, 14.0f);
+    auto motionGroup = unionOf({ autoPanButton.getBounds(), autoPanAmountSlider.getBounds(), autoPanRateSlider.getBounds(),
+                                 speedSlider.getBounds(), driftSlider.getBounds() }).expanded(8.0f, 14.0f);
+    auto filterGroup = unionOf({ hpSlider.getBounds(), lpSlider.getBounds(), xfadeSlider.getBounds(), offsetSlider.getBounds() }).expanded(8.0f, 14.0f);
+    drawControlGroup(mixGroup, "Mix", 0.08f);
+    drawControlGroup(motionGroup, "Motion", 0.36f);
+    drawControlGroup(filterGroup, "Filter / Loop", 0.64f);
 
     g.setColour(Theme::stroke.withAlpha(0.30f));
     g.drawRoundedRectangle(r.reduced(0.5f, 2.0f), 9.0f, 0.8f);
@@ -1002,7 +1047,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
 
     auto drawControl = [&g, accent] (juce::Slider& slider, const juce::String& caption, int width = 52)
     {
-        drawSmallCaption(g, slider.getBounds().withSizeKeepingCentre(width + 10, 9).translated(0, -14), caption);
+        drawSmallCaption(g, slider.getBounds().withSizeKeepingCentre(width + 10, 9).translated(0, -5), caption);
         auto value = slider.getBounds().withSizeKeepingCentre(width, 15);
         value.setY(slider.getBottom() - 1);
         drawValuePill(g, value, sliderValueText(slider), accent, 9.8f);
@@ -1010,21 +1055,21 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
 
     drawControl(volumeSlider, "Volume", 64);
     drawControl(panSlider, "Pan", 48);
-    drawSmallCaption(g, autoPanButton.getBounds().withSizeKeepingCentre(44, 9).translated(0, -14), "Auto");
+    drawControl(widthSlider, "Width", 48);
+    drawSmallCaption(g, autoPanButton.getBounds().withSizeKeepingCentre(44, 9).translated(0, -5), "Auto");
     drawControl(autoPanAmountSlider, "AP Amt", 48);
     drawControl(autoPanRateSlider, "AP Hz", 54);
     drawControl(speedSlider, "Speed", 50);
     drawControl(driftSlider, "Drift", 48);
-    drawControl(widthSlider, "Width", 48);
-    drawControl(offsetSlider, "Start", 64);
     drawControl(hpSlider, "HP", 52);
     drawControl(lpSlider, "LP", 52);
     drawControl(xfadeSlider, "XFade", 54);
+    drawControl(offsetSlider, "Start", 64);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
-    auto area = getLocalBounds().reduced(8, 7);
+    auto area = getLocalBounds().reduced(8, 6);
     numberLabel.setBounds(area.removeFromLeft(46));
 
     auto fileArea = area.removeFromLeft(548).reduced(2, 0);
@@ -1036,28 +1081,34 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     fileLabel.setBounds(fileTop);
     waveformPreview.setBounds(fileArea.reduced(0, 2));
 
-    onButton.setBounds(area.removeFromLeft(36).reduced(3, 20));
-    soloButton.setBounds(area.removeFromLeft(36).reduced(3, 20));
+    auto switchArea = area.removeFromLeft(74).reduced(4, 10);
+    onButton.setBounds(switchArea.removeFromLeft(33).reduced(1, 12));
+    soloButton.setBounds(switchArea.removeFromLeft(33).reduced(1, 12));
 
-    auto placeControl = [&area] (juce::Slider& slider, int width)
+    auto placeControl = [] (juce::Rectangle<int>& group, juce::Slider& slider, int width, int knobSize = 43)
     {
-        auto column = area.removeFromLeft(width).reduced(1, 0);
-        slider.setBounds(column.withTrimmedTop(12).withTrimmedBottom(6).withSizeKeepingCentre(43, 43));
+        auto column = group.removeFromLeft(width).reduced(2, 0);
+        slider.setBounds(column.withTrimmedTop(18).withTrimmedBottom(4).withSizeKeepingCentre(knobSize, knobSize));
     };
 
-    auto volumeColumn = area.removeFromLeft(90).reduced(2, 0);
-    volumeSlider.setBounds(volumeColumn.withTrimmedTop(18).withTrimmedBottom(12));
-    placeControl(panSlider, 62);
-    autoPanButton.setBounds(area.removeFromLeft(40).reduced(3, 22));
-    placeControl(autoPanAmountSlider, 60);
-    placeControl(autoPanRateSlider, 64);
-    placeControl(speedSlider, 60);
-    placeControl(driftSlider, 58);
-    placeControl(widthSlider, 58);
-    placeControl(offsetSlider, 78);
-    placeControl(hpSlider, 60);
-    placeControl(lpSlider, 60);
-    placeControl(xfadeSlider, 62);
+    auto mixGroup = area.removeFromLeft(190).reduced(4, 0);
+    auto volumeColumn = mixGroup.removeFromLeft(78).reduced(2, 0);
+    volumeSlider.setBounds(volumeColumn.withTrimmedTop(24).withTrimmedBottom(9));
+    placeControl(mixGroup, panSlider, 54);
+    placeControl(mixGroup, widthSlider, 54);
+
+    auto motionGroup = area.removeFromLeft(286).reduced(4, 0);
+    autoPanButton.setBounds(motionGroup.removeFromLeft(46).reduced(3, 25));
+    placeControl(motionGroup, autoPanAmountSlider, 54);
+    placeControl(motionGroup, autoPanRateSlider, 58);
+    placeControl(motionGroup, speedSlider, 58);
+    placeControl(motionGroup, driftSlider, 54);
+
+    auto filterGroup = area.reduced(4, 0);
+    placeControl(filterGroup, hpSlider, 58);
+    placeControl(filterGroup, lpSlider, 58);
+    placeControl(filterGroup, xfadeSlider, 60);
+    placeControl(filterGroup, offsetSlider, 68);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()

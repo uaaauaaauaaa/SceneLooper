@@ -100,10 +100,25 @@ private:
     SceneLooperAudioProcessor& processor;
 
     juce::Label titleLabel;
+    juce::Label bylineLabel;
+    juce::Label taglineLabel;
+    juce::Label sceneCaptionLabel;
+    juce::Label sceneNameLabel;
+    juce::Label masterLabel;
+    juce::Label globalXFadeLabel;
+    juce::Label masterLowCutLabel;
+    juce::Label masterHighCutLabel;
+    juce::Label randomizationLabel;
+    juce::Label randomStartLabel;
+    juce::Label masterMeterLabel;
     juce::TextButton saveSceneButton { "Save Scene" };
     juce::TextButton loadSceneButton { "Load Scene" };
     juce::Slider masterSlider;
     juce::Slider globalXFadeSlider;
+    juce::Slider masterLowCutSlider;
+    juce::Slider masterHighCutSlider;
+    juce::Slider randomStartSlider;
+    std::unique_ptr<juce::LookAndFeel_V4> lookAndFeel;
     std::unique_ptr<juce::FileChooser> sceneFileChooser;
     std::unique_ptr<SliderAttachment> masterAttachment;
     std::unique_ptr<SliderAttachment> globalXFadeAttachment;

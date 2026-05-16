@@ -25,10 +25,10 @@ jobs:
           VST3_PATH=$(find build -name "SceneLooper.vst3" -type d | head -n 1)
           cp -R "$VST3_PATH" artifact/
           cd artifact
-          zip -r SceneLooper-macOS-v0.7.zip SceneLooper.vst3
+          zip -r SceneLooper-macOS-v0.8.zip SceneLooper.vst3
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SceneLooper-macOS-v0.7
-          path: artifact/SceneLooper-macOS-v0.7.zip
+          name: SceneLooper-macOS-v0.8
+          path: artifact/SceneLooper-macOS-v0.8.zip

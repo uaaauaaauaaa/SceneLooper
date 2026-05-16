@@ -51,7 +51,7 @@ void drawValuePill(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::S
     g.drawFittedText(text, bounds.reduced(3, 0), juce::Justification::centred, 1);
 }
 
-juce::String sliderValueText(const juce::Slider& slider)
+juce::String sliderValueText(juce::Slider& slider)
 {
     return slider.getTextFromValue(slider.getValue());
 }
@@ -481,7 +481,7 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    auto drawMacroValue = [&g] (const juce::Slider& slider, juce::Colour accent)
+    auto drawMacroValue = [&g] (juce::Slider& slider, juce::Colour accent)
     {
         auto value = slider.getBounds().withSizeKeepingCentre(86, 18);
         value.setY(slider.getBottom() - 6);
@@ -850,7 +850,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
 {
     const auto accent = Theme::layerColour(layerIndex);
 
-    auto drawSliderValue = [&g, accent] (const juce::Slider& slider, int width = 52)
+    auto drawSliderValue = [&g, accent] (juce::Slider& slider, int width = 52)
     {
         auto value = slider.getBounds().withSizeKeepingCentre(width, 14);
         value.setY(slider.getBottom() + 1);

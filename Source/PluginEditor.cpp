@@ -20,9 +20,9 @@ constexpr int editorWidth = 1480;
 constexpr int editorHeight = 840;
 constexpr int outerMargin = 12;
 constexpr int topPanelHeight = 142;
-constexpr int headerHeight = 24;
+constexpr int headerHeight = 0;
 constexpr int bottomStripHeight = 74;
-constexpr int rowHeight = 71;
+constexpr int rowHeight = 74;
 
 juce::Colour layerColour(int layerIndex)
 {
@@ -47,6 +47,13 @@ void drawValuePill(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::S
     g.setColour(Theme::text.withAlpha(0.94f));
     g.setFont(juce::Font(fontSize, juce::Font::bold));
     g.drawFittedText(text, bounds, juce::Justification::centred, 1);
+}
+
+void drawSmallCaption(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text)
+{
+    g.setColour(Theme::mutedText.withAlpha(0.70f));
+    g.setFont(juce::Font(7.8f, juce::Font::bold));
+    g.drawFittedText(text.toUpperCase(), bounds, juce::Justification::centred, 1);
 }
 
 juce::String sliderValueText(juce::Slider& slider)
@@ -430,6 +437,18 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(Theme::stroke.withAlpha(0.85f));
     g.drawRoundedRectangle(bounds, 14.0f, 1.2f);
 
+    auto layerDeck = getLocalBounds().reduced(Theme::outerMargin).toFloat();
+    layerDeck.removeFromTop((float) Theme::topPanelHeight + 4.0f);
+    layerDeck.removeFromBottom((float) Theme::bottomStripHeight + 4.0f);
+    juce::ColourGradient deckGradient(juce::Colour(0xff061c20).withAlpha(0.70f), layerDeck.getX(), layerDeck.getY(),
+                                      juce::Colour(0xff030b0e).withAlpha(0.82f), layerDeck.getRight(), layerDeck.getBottom(), false);
+    g.setGradientFill(deckGradient);
+    g.fillRoundedRectangle(layerDeck, 10.0f);
+    g.setColour(Theme::cyan.withAlpha(0.045f));
+    g.fillRoundedRectangle(layerDeck.reduced(7.0f).withTrimmedBottom(layerDeck.getHeight() * 0.62f), 9.0f);
+    g.setColour(Theme::stroke.withAlpha(0.55f));
+    g.drawRoundedRectangle(layerDeck, 10.0f, 0.9f);
+
     const auto topPanel = getLocalBounds().reduced(Theme::outerMargin).removeFromTop(Theme::topPanelHeight).toFloat();
     Theme::fillVerticalGradient(g, topPanel, juce::Colour(0xff0d3034).withAlpha(0.92f), Theme::panelDeep);
     g.setColour(Theme::cyan.withAlpha(0.06f));
@@ -584,36 +603,6 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     g.strokePath(waveB, juce::PathStrokeType(1.9f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     g.setColour(Theme::blue.withAlpha(0.50f));
     g.strokePath(waveC, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    auto bodyArea = getLocalBounds().reduced(Theme::outerMargin);
-    bodyArea.removeFromTop(Theme::topPanelHeight);
-    bodyArea.removeFromBottom(Theme::bottomStripHeight);
-    auto header = bodyArea.removeFromTop(Theme::headerHeight).toFloat();
-    Theme::fillVerticalGradient(g, header, juce::Colour(0xff0a2326), juce::Colour(0xff061316));
-    g.setColour(Theme::stroke.withAlpha(0.45f));
-    g.drawRoundedRectangle(header, 4.0f, 0.8f);
-
-    auto headerCells = header.toNearestInt().reduced(8, 0);
-    auto drawHeader = [&g] (juce::Rectangle<int>& r, int width, const juce::String& text)
-    {
-        auto cell = r.removeFromLeft(width);
-        g.setColour(Theme::mutedText.withAlpha(0.90f));
-        g.setFont(juce::Font(9.5f, juce::Font::bold));
-        g.drawFittedText(text, cell.reduced(2, 0), juce::Justification::centred, 1);
-    };
-    drawHeader(headerCells, 54, "LAYER");
-    drawHeader(headerCells, 540, "FILE / LOOP / TIME");
-    drawHeader(headerCells, 74, "ON");
-    drawHeader(headerCells, 90, "VOLUME");
-    drawHeader(headerCells, 62, "PAN");
-    drawHeader(headerCells, 164, "AUTO PAN");
-    drawHeader(headerCells, 60, "SPEED");
-    drawHeader(headerCells, 58, "DRIFT");
-    drawHeader(headerCells, 58, "WIDTH");
-    drawHeader(headerCells, 78, "START OFFSET");
-    drawHeader(headerCells, 60, "HP");
-    drawHeader(headerCells, 60, "LP");
-    drawHeader(headerCells, 62, "XFADE");
 
     g.setColour(Theme::purple.withAlpha(0.9f));
     g.drawLine((float) Theme::outerMargin + 10.0f, (float) Theme::topPanelHeight + Theme::outerMargin,
@@ -984,65 +973,79 @@ void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
     const auto accent = Theme::layerColour(layerIndex);
-    Theme::fillVerticalGradient(g, r.reduced(0.0f, 1.0f), juce::Colour(0xff0c282b).withAlpha(0.92f), juce::Colour(0xff061316));
+    juce::ColourGradient rowGradient(juce::Colour(0xff0d2d31).withAlpha(0.92f), r.getX(), r.getY(),
+                                     juce::Colour(0xff041013).withAlpha(0.96f), r.getRight(), r.getBottom(), false);
+    rowGradient.addColour(0.48, juce::Colour(0xff082226).withAlpha(0.96f));
+    g.setGradientFill(rowGradient);
+    g.fillRoundedRectangle(r.reduced(0.0f, 2.0f), 9.0f);
 
-    g.setColour(accent.withAlpha(0.055f));
-    g.fillRoundedRectangle(r.reduced(7.0f, 5.0f), 7.0f);
+    g.setColour(accent.withAlpha(0.075f));
+    g.fillRoundedRectangle(r.reduced(7.0f, 7.0f), 8.0f);
 
     g.setColour(accent.withAlpha(0.95f));
-    g.fillRoundedRectangle(r.withWidth(5.0f).reduced(0.0f, 2.0f), 7.0f);
+    g.fillRoundedRectangle(r.withWidth(5.5f).reduced(0.0f, 3.0f), 7.0f);
     juce::ColourGradient numberGradient(accent.withAlpha(0.22f), r.getX(), r.getY(),
-                                        Theme::panelDeep.withAlpha(0.18f), r.getX() + 72.0f, r.getBottom(), false);
+                                        Theme::panelDeep.withAlpha(0.08f), r.getX() + 80.0f, r.getBottom(), false);
     g.setGradientFill(numberGradient);
-    g.fillRoundedRectangle(r.withWidth(72.0f).reduced(0.0f, 2.0f), 7.0f);
+    g.fillRoundedRectangle(r.withWidth(76.0f).reduced(0.0f, 3.0f), 8.0f);
 
-    auto fileBlock = juce::Rectangle<float>(54.0f, 6.0f, 540.0f, r.getHeight() - 13.0f);
-    juce::ColourGradient fileGradient(juce::Colour(0xff07181b), fileBlock.getX(), fileBlock.getY(),
-                                      juce::Colour(0xff041012), fileBlock.getRight(), fileBlock.getBottom(), false);
-    fileGradient.addColour(0.50, accent.withAlpha(0.065f));
+    auto fileBlock = juce::Rectangle<float>(56.0f, 7.0f, 548.0f, r.getHeight() - 15.0f);
+    juce::ColourGradient fileGradient(juce::Colour(0xff0a2428), fileBlock.getX(), fileBlock.getY(),
+                                      juce::Colour(0xff02090c), fileBlock.getRight(), fileBlock.getBottom(), false);
+    fileGradient.addColour(0.50, accent.withAlpha(0.12f));
     g.setGradientFill(fileGradient);
-    g.fillRoundedRectangle(fileBlock, 6.0f);
-    g.setColour(accent.withAlpha(0.22f));
-    g.drawRoundedRectangle(fileBlock, 6.0f, 0.8f);
+    g.fillRoundedRectangle(fileBlock, 8.0f);
+    g.setColour(Theme::cyan.withAlpha(0.055f));
+    g.fillRoundedRectangle(fileBlock.reduced(2.0f).withTrimmedBottom(fileBlock.getHeight() * 0.52f), 7.0f);
+    g.setColour(accent.withAlpha(0.30f));
+    g.drawRoundedRectangle(fileBlock, 8.0f, 0.9f);
 
-    auto controlBlock = juce::Rectangle<float>(604.0f, 6.0f, r.getWidth() - 612.0f, r.getHeight() - 13.0f);
-    g.setColour(juce::Colour(0xff051417).withAlpha(0.38f));
-    g.fillRoundedRectangle(controlBlock, 6.0f);
+    auto switchBlock = juce::Rectangle<float>(612.0f, 10.0f, 72.0f, r.getHeight() - 20.0f);
+    g.setColour(juce::Colour(0xff061719).withAlpha(0.56f));
+    g.fillRoundedRectangle(switchBlock, 8.0f);
 
-    g.setColour(Theme::stroke.withAlpha(0.38f));
-    g.drawRoundedRectangle(r.reduced(0.5f, 1.0f), 7.0f, 0.8f);
+    auto controlBlock = juce::Rectangle<float>(692.0f, 7.0f, r.getWidth() - 700.0f, r.getHeight() - 15.0f);
+    g.setColour(juce::Colour(0xff051417).withAlpha(0.48f));
+    g.fillRoundedRectangle(controlBlock, 8.0f);
+    g.setColour(Theme::stroke.withAlpha(0.22f));
+    g.drawRoundedRectangle(controlBlock, 8.0f, 0.7f);
+
+    g.setColour(Theme::stroke.withAlpha(0.30f));
+    g.drawRoundedRectangle(r.reduced(0.5f, 2.0f), 9.0f, 0.8f);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics& g)
 {
     const auto accent = Theme::layerColour(layerIndex);
 
-    auto drawSliderValue = [&g, accent] (juce::Slider& slider, int width = 52)
+    auto drawControl = [&g, accent] (juce::Slider& slider, const juce::String& caption, int width = 52)
     {
+        drawSmallCaption(g, slider.getBounds().withSizeKeepingCentre(width + 10, 9).translated(0, -14), caption);
         auto value = slider.getBounds().withSizeKeepingCentre(width, 15);
-        value.setY(slider.getBottom() + 1);
+        value.setY(slider.getBottom() - 1);
         drawValuePill(g, value, sliderValueText(slider), accent, 9.8f);
     };
 
-    drawSliderValue(volumeSlider, 64);
-    drawSliderValue(panSlider, 48);
-    drawSliderValue(autoPanAmountSlider, 48);
-    drawSliderValue(autoPanRateSlider, 54);
-    drawSliderValue(speedSlider, 50);
-    drawSliderValue(driftSlider, 48);
-    drawSliderValue(widthSlider, 48);
-    drawSliderValue(offsetSlider, 64);
-    drawSliderValue(hpSlider, 52);
-    drawSliderValue(lpSlider, 52);
-    drawSliderValue(xfadeSlider, 54);
+    drawControl(volumeSlider, "Volume", 64);
+    drawControl(panSlider, "Pan", 48);
+    drawSmallCaption(g, autoPanButton.getBounds().withSizeKeepingCentre(44, 9).translated(0, -14), "Auto");
+    drawControl(autoPanAmountSlider, "AP Amt", 48);
+    drawControl(autoPanRateSlider, "AP Hz", 54);
+    drawControl(speedSlider, "Speed", 50);
+    drawControl(driftSlider, "Drift", 48);
+    drawControl(widthSlider, "Width", 48);
+    drawControl(offsetSlider, "Start", 64);
+    drawControl(hpSlider, "HP", 52);
+    drawControl(lpSlider, "LP", 52);
+    drawControl(xfadeSlider, "XFade", 54);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
-    auto area = getLocalBounds().reduced(8, 6);
+    auto area = getLocalBounds().reduced(8, 7);
     numberLabel.setBounds(area.removeFromLeft(46));
 
-    auto fileArea = area.removeFromLeft(540).reduced(2, 0);
+    auto fileArea = area.removeFromLeft(548).reduced(2, 0);
     auto fileTop = fileArea.removeFromTop(18);
     loadButton.setBounds(fileTop.removeFromRight(62).reduced(3, 1));
     auto timeArea = fileTop.removeFromRight(142).reduced(2, 0);
@@ -1051,20 +1054,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     fileLabel.setBounds(fileTop);
     waveformPreview.setBounds(fileArea.reduced(0, 2));
 
-    onButton.setBounds(area.removeFromLeft(34).reduced(2, 18));
-    soloButton.setBounds(area.removeFromLeft(34).reduced(2, 18));
+    onButton.setBounds(area.removeFromLeft(36).reduced(3, 20));
+    soloButton.setBounds(area.removeFromLeft(36).reduced(3, 20));
 
     auto placeControl = [&area] (juce::Slider& slider, int width)
     {
         auto column = area.removeFromLeft(width).reduced(1, 0);
-        auto knobArea = column.removeFromTop(43);
-        slider.setBounds(knobArea.withSizeKeepingCentre(42, 42));
+        slider.setBounds(column.withTrimmedTop(12).withTrimmedBottom(6).withSizeKeepingCentre(43, 43));
     };
 
     auto volumeColumn = area.removeFromLeft(90).reduced(2, 0);
-    volumeSlider.setBounds(volumeColumn.removeFromTop(43).reduced(0, 2));
+    volumeSlider.setBounds(volumeColumn.withTrimmedTop(18).withTrimmedBottom(12));
     placeControl(panSlider, 62);
-    autoPanButton.setBounds(area.removeFromLeft(40).reduced(2, 18));
+    autoPanButton.setBounds(area.removeFromLeft(40).reduced(3, 22));
     placeControl(autoPanAmountSlider, 60);
     placeControl(autoPanRateSlider, 64);
     placeControl(speedSlider, 60);

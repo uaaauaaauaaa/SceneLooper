@@ -113,6 +113,7 @@ private:
     juce::Label masterMeterLabel;
     juce::TextButton saveSceneButton { "Save Scene" };
     juce::TextButton loadSceneButton { "Load Scene" };
+    juce::TextButton randomizeButton { "Randomize" };
     juce::Slider masterSlider;
     juce::Slider globalXFadeSlider;
     juce::Slider masterLowCutSlider;
@@ -122,6 +123,9 @@ private:
     std::unique_ptr<juce::FileChooser> sceneFileChooser;
     std::unique_ptr<SliderAttachment> masterAttachment;
     std::unique_ptr<SliderAttachment> globalXFadeAttachment;
+    std::unique_ptr<SliderAttachment> masterLowCutAttachment;
+    std::unique_ptr<SliderAttachment> masterHighCutAttachment;
+    std::unique_ptr<SliderAttachment> randomStartAttachment;
 
     std::array<std::unique_ptr<LayerRow>, SceneLooperAudioProcessor::numLayers> rows;
 

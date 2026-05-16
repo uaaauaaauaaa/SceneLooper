@@ -48,6 +48,10 @@ public:
     double getLayerPlaybackPositionFraction(int layerIndex) const;
     void seekLayerToFraction(int layerIndex, double fraction);
     bool copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const;
+    float getLayerLevel(int layerIndex) const;
+    float getLayerWaveformDisplayGain(int layerIndex) const;
+    float getMasterLevel() const;
+    void randomizeLayerStarts();
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
 
@@ -86,6 +90,7 @@ private:
         std::atomic<double> lengthSeconds { 0.0 };
         std::atomic<double> displayPositionSamples { 0.0 };
         std::atomic<double> pendingSeekFraction { -1.0 };
+        std::atomic<float> outputLevel { 0.0f };
         std::array<float, waveformPreviewPoints> waveformPreview {};
         std::atomic<bool> waveformPreviewReady { false };
         OnePoleFilter hp[2];
@@ -96,7 +101,11 @@ private:
 
     Layer layers[numLayers];
     juce::AudioFormatManager formatManager;
+    juce::Random random;
     double currentSampleRate = 48000.0;
+    std::atomic<float> masterOutputLevel { 0.0f };
+    OnePoleFilter masterHP[2];
+    OnePoleFilter masterLP[2];
 
     bool anySoloActive() const;
     float getParameterValue(const juce::String& id) const;
@@ -106,6 +115,7 @@ private:
     void buildWaveformPreview(int layerIndex);
     void resetLayerPlayback();
     void renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode);
+    void applyMasterProcessing(juce::AudioBuffer<float>& buffer);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessor)
 };

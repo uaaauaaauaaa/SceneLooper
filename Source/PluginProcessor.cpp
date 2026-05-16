@@ -32,6 +32,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SceneLooperAudioProcessor::c
         juce::NormalisableRange<float>(-60.0f, 6.0f, 0.1f), 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("globalXFade", "Global XFade",
         juce::NormalisableRange<float>(0.0f, 10.0f, 0.01f), 3.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("masterLowCut", "Master Low Cut",
+        juce::NormalisableRange<float>(20.0f, 1000.0f, 1.0f, 0.35f), 20.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("masterHighCut", "Master High Cut",
+        juce::NormalisableRange<float>(1000.0f, 20000.0f, 1.0f, 0.35f), 20000.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("randomStart", "Random Start",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 30.0f));
 
     for (int i = 0; i < numLayers; ++i)
     {
@@ -104,6 +110,7 @@ void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce:
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
     layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
+    layer.outputLevel.store(0.0f, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
@@ -121,6 +128,7 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
     layer.lengthSeconds.store(0.0, std::memory_order_relaxed);
     layer.displayPositionSamples.store(0.0, std::memory_order_relaxed);
     layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
+    layer.outputLevel.store(0.0f, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
 }
@@ -152,20 +160,35 @@ bool SceneLooperAudioProcessor::isBusesLayoutSupported(const BusesLayout& layout
 
 void SceneLooperAudioProcessor::resetLayerPlayback()
 {
+    const auto randomStartAmount = apvts.getRawParameterValue("randomStart")->load() * 0.01;
+
     for (int i = 0; i < numLayers; ++i)
     {
         const auto offsetSeconds = apvts.getRawParameterValue(paramId(i, "offset"))->load();
         layers[i].position = std::max(0.0, (double) offsetSeconds * currentSampleRate);
         if (layers[i].audio.getNumSamples() > 0)
+        {
+            if (randomStartAmount > 0.0f)
+                layers[i].position += random.nextDouble() * (double) layers[i].audio.getNumSamples() * (double) randomStartAmount;
+
+            layers[i].position = std::fmod(layers[i].position, (double) layers[i].audio.getNumSamples());
             layers[i].displayPositionSamples.store(std::fmod(layers[i].position, (double) layers[i].audio.getNumSamples()),
                 std::memory_order_relaxed);
+        }
         else
+        {
             layers[i].displayPositionSamples.store(0.0, std::memory_order_relaxed);
+        }
         layers[i].autoPanPhase = 0.0;
         layers[i].driftPhase = 0.0;
+        layers[i].outputLevel.store(0.0f, std::memory_order_relaxed);
         for (auto& f : layers[i].hp) f.reset();
         for (auto& f : layers[i].lp) f.reset();
     }
+
+    masterOutputLevel.store(0.0f, std::memory_order_relaxed);
+    for (auto& f : masterHP) f.reset();
+    for (auto& f : masterLP) f.reset();
 }
 
 bool SceneLooperAudioProcessor::anySoloActive() const
@@ -351,6 +374,34 @@ bool SceneLooperAudioProcessor::copyWaveformPreview(int layerIndex, std::array<f
     return true;
 }
 
+float SceneLooperAudioProcessor::getLayerLevel(int layerIndex) const
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return 0.0f;
+
+    return layers[layerIndex].outputLevel.load(std::memory_order_relaxed);
+}
+
+float SceneLooperAudioProcessor::getLayerWaveformDisplayGain(int layerIndex) const
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return 1.0f;
+
+    const auto volumeDb = getParameterValue(paramId(layerIndex, "volume"));
+    const auto gain = juce::Decibels::decibelsToGain(volumeDb, -60.0f);
+    return juce::jlimit(0.08f, 1.0f, std::pow(gain, 0.35f));
+}
+
+float SceneLooperAudioProcessor::getMasterLevel() const
+{
+    return masterOutputLevel.load(std::memory_order_relaxed);
+}
+
+void SceneLooperAudioProcessor::randomizeLayerStarts()
+{
+    resetLayerPlayback();
+}
+
 bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const
 {
     juce::var rootVar(new juce::DynamicObject());
@@ -360,6 +411,9 @@ bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::St
     auto* global = globalVar.getDynamicObject();
     global->setProperty("masterVolume", getParameterValue("masterVolume"));
     global->setProperty("globalXFade", getParameterValue("globalXFade"));
+    global->setProperty("masterLowCut", getParameterValue("masterLowCut"));
+    global->setProperty("masterHighCut", getParameterValue("masterHighCut"));
+    global->setProperty("randomStart", getParameterValue("randomStart"));
     root->setProperty("global", globalVar);
 
     juce::Array<juce::var> layerArray;
@@ -426,6 +480,9 @@ bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::
         auto* global = globalVar.getDynamicObject();
         setParameterValue("masterVolume", (float) global->getProperty("masterVolume"));
         setParameterValue("globalXFade", (float) global->getProperty("globalXFade"));
+        setParameterValue("masterLowCut", getFloatPropertyOrDefault(*global, "masterLowCut", 20.0f));
+        setParameterValue("masterHighCut", getFloatPropertyOrDefault(*global, "masterHighCut", 20000.0f));
+        setParameterValue("randomStart", getFloatPropertyOrDefault(*global, "randomStart", 30.0f));
     }
 
     auto layersVar = root->getProperty("layers");
@@ -482,12 +539,18 @@ bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::
 void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode)
 {
     if (! layer.loaded || layer.audio.getNumSamples() <= 0)
+    {
+        layer.outputLevel.store(0.0f, std::memory_order_relaxed);
         return;
+    }
 
     const bool on = apvts.getRawParameterValue(paramId(layerIndex, "on"))->load() > 0.5f;
     const bool solo = apvts.getRawParameterValue(paramId(layerIndex, "solo"))->load() > 0.5f;
     if (! on || (soloMode && ! solo))
+    {
+        layer.outputLevel.store(0.0f, std::memory_order_relaxed);
         return;
+    }
 
     const float layerVolumeDb = apvts.getRawParameterValue(paramId(layerIndex, "volume"))->load();
     const float masterVolumeDb = apvts.getRawParameterValue("masterVolume")->load();
@@ -525,6 +588,7 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     const auto* srcL = layer.audio.getReadPointer(0);
     const auto* srcR = srcChannels > 1 ? layer.audio.getReadPointer(1) : nullptr;
     double displayPositionSamples = layer.displayPositionSamples.load(std::memory_order_relaxed);
+    float layerPeak = 0.0f;
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -581,8 +645,11 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             const float angle = (effectivePan + 1.0f) * juce::MathConstants<float>::halfPi * 0.5f;
             const float lg = std::cos(angle);
             const float rg = std::sin(angle);
-            outL[n] += left * lg * gain;
-            outR[n] += left * rg * gain;
+            const float renderedL = left * lg * gain;
+            const float renderedR = left * rg * gain;
+            outL[n] += renderedL;
+            outR[n] += renderedR;
+            layerPeak = juce::jmax(layerPeak, juce::jmax(std::abs(renderedL), std::abs(renderedR)));
         }
         else
         {
@@ -595,8 +662,11 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
 
             const float lg = effectivePan <= 0.0f ? 1.0f : 1.0f - effectivePan;
             const float rg = effectivePan >= 0.0f ? 1.0f : 1.0f + effectivePan;
-            outL[n] += left * lg * gain;
-            outR[n] += right * rg * gain;
+            const float renderedL = left * lg * gain;
+            const float renderedR = right * rg * gain;
+            outL[n] += renderedL;
+            outR[n] += renderedR;
+            layerPeak = juce::jmax(layerPeak, juce::jmax(std::abs(renderedL), std::abs(renderedR)));
         }
 
         if (autoPanOn)
@@ -628,6 +698,37 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     }
 
     layer.displayPositionSamples.store(displayPositionSamples, std::memory_order_relaxed);
+    layer.outputLevel.store(juce::jlimit(0.0f, 1.0f, layerPeak), std::memory_order_relaxed);
+}
+
+void SceneLooperAudioProcessor::applyMasterProcessing(juce::AudioBuffer<float>& buffer)
+{
+    const float lowCut = apvts.getRawParameterValue("masterLowCut")->load();
+    const float highCut = apvts.getRawParameterValue("masterHighCut")->load();
+    float peak = 0.0f;
+
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        auto* data = buffer.getWritePointer(channel);
+        auto& hp = masterHP[juce::jmin(channel, 1)];
+        auto& lp = masterLP[juce::jmin(channel, 1)];
+
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            float value = data[sample];
+            if (lowCut > 20.5f)
+                value = hp.processHighPass(value, lowCut, currentSampleRate);
+            if (highCut < 19999.0f)
+                value = lp.processLowPass(value, highCut, currentSampleRate);
+
+            data[sample] = value;
+            peak = juce::jmax(peak, std::abs(value));
+        }
+    }
+
+    const auto previous = masterOutputLevel.load(std::memory_order_relaxed);
+    masterOutputLevel.store(juce::jlimit(0.0f, 1.0f, juce::jmax(peak, previous * 0.82f)),
+        std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -638,6 +739,8 @@ void SceneLooperAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     const bool soloMode = anySoloActive();
     for (int i = 0; i < numLayers; ++i)
         renderLayer(layers[i], i, buffer, buffer.getNumSamples(), soloMode);
+
+    applyMasterProcessing(buffer);
 }
 
 juce::AudioProcessorEditor* SceneLooperAudioProcessor::createEditor()

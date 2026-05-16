@@ -402,6 +402,16 @@ void SceneLooperAudioProcessor::randomizeLayerStarts()
     resetLayerPlayback();
 }
 
+juce::String SceneLooperAudioProcessor::getCurrentSceneName() const
+{
+    return currentSceneName;
+}
+
+void SceneLooperAudioProcessor::setCurrentSceneName(const juce::String& sceneName)
+{
+    currentSceneName = sceneName.isNotEmpty() ? sceneName : "Untitled Scene";
+}
+
 bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const
 {
     juce::var rootVar(new juce::DynamicObject());
@@ -531,6 +541,7 @@ bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::
         }
     }
 
+    setCurrentSceneName(file.getFileNameWithoutExtension());
     resetLayerPlayback();
     errorMessage.clear();
     return true;
@@ -751,6 +762,10 @@ juce::AudioProcessorEditor* SceneLooperAudioProcessor::createEditor()
 void SceneLooperAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
+    auto scene = juce::ValueTree("SCENE");
+    scene.setProperty("name", getCurrentSceneName(), nullptr);
+    state.addChild(scene, -1, nullptr);
+
     auto files = juce::ValueTree("FILES");
     for (int i = 0; i < numLayers; ++i)
     {
@@ -773,6 +788,17 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
     auto state = juce::ValueTree::fromXml(*xml);
     if (! state.isValid())
         return;
+
+    auto scene = state.getChildWithName("SCENE");
+    if (scene.isValid())
+    {
+        setCurrentSceneName(scene.getProperty("name", "Untitled Scene").toString());
+        state.removeChild(scene, nullptr);
+    }
+    else
+    {
+        setCurrentSceneName("Untitled Scene");
+    }
 
     auto files = state.getChildWithName("FILES");
     state.removeChild(files, nullptr);

@@ -54,6 +54,8 @@ public:
     void randomizeLayerStarts();
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
+    juce::String getCurrentSceneName() const;
+    void setCurrentSceneName(const juce::String& sceneName);
 
     static juce::String paramId(int layerIndex, const juce::String& name);
 
@@ -106,6 +108,7 @@ private:
     std::atomic<float> masterOutputLevel { 0.0f };
     OnePoleFilter masterHP[2];
     OnePoleFilter masterLP[2];
+    juce::String currentSceneName { "Untitled Scene" };
 
     bool anySoloActive() const;
     float getParameterValue(const juce::String& id) const;

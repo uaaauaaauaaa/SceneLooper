@@ -198,10 +198,12 @@ public:
         const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
         const auto glow = juce::jlimit(0.0f, 1.0f, sliderPos);
 
-        g.setColour(accent.withAlpha(0.07f + glow * 0.14f));
-        g.fillEllipse(r.expanded(3.5f + glow * 3.5f));
-        g.setColour(accent.withAlpha(0.025f + glow * 0.065f));
-        g.fillEllipse(r.expanded(7.0f + glow * 5.0f));
+        const auto innerGlow = 1.6f + glow * 1.2f;
+        const auto outerGlow = 2.4f + glow * 0.8f;
+        g.setColour(accent.withAlpha(0.12f + glow * 0.20f));
+        g.fillEllipse(r.expanded(innerGlow));
+        g.setColour(accent.withAlpha(0.04f + glow * 0.09f));
+        g.fillEllipse(r.expanded(outerGlow));
 
         g.setColour(juce::Colours::black.withAlpha(0.58f));
         g.fillEllipse(r.translated(0.0f, 3.0f));

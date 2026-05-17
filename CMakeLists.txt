@@ -18,6 +18,18 @@ juce_add_binary_data(AtmocycleFigmaAssets
         Source/Assets/FigmaUI/atmocycle_figma_ui.png
         Source/Assets/FigmaUI/control_states_reference.png
         Source/Assets/FigmaUI/master_knobs_reference.png
+        Source/Assets/FigmaUI/small_knobs_reference.png
+        Source/Assets/FigmaUI/small_knob_frames.png
+        Source/Assets/FigmaUI/master_knob_frames.png
+        Source/Assets/FigmaUI/asset_power_off.png
+        Source/Assets/FigmaUI/asset_power_on.png
+        Source/Assets/FigmaUI/asset_solo_off.png
+        Source/Assets/FigmaUI/asset_solo_on.png
+        Source/Assets/FigmaUI/asset_layer_load_normal.png
+        Source/Assets/FigmaUI/asset_layer_load_hover.png
+        Source/Assets/FigmaUI/asset_layer_load_down.png
+        Source/Assets/FigmaUI/asset_ap_off.png
+        Source/Assets/FigmaUI/asset_ap_on.png
         Source/Assets/FigmaUI/load_scene_button.png
         Source/Assets/FigmaUI/save_scene_button.png
         Source/Assets/FigmaUI/randomization_button.png)

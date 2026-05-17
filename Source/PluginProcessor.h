@@ -108,7 +108,7 @@ private:
     std::atomic<float> masterOutputLevel { 0.0f };
     OnePoleFilter masterHP[2];
     OnePoleFilter masterLP[2];
-    juce::String currentSceneName { "Untitled Scene" };
+    juce::String currentSceneName { "Project State" };
 
     bool anySoloActive() const;
     float getParameterValue(const juce::String& id) const;

@@ -409,7 +409,7 @@ juce::String SceneLooperAudioProcessor::getCurrentSceneName() const
 
 void SceneLooperAudioProcessor::setCurrentSceneName(const juce::String& sceneName)
 {
-    currentSceneName = sceneName.isNotEmpty() ? sceneName : "Untitled Scene";
+    currentSceneName = sceneName.isNotEmpty() ? sceneName : "Project State";
 }
 
 bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::String& errorMessage) const
@@ -792,12 +792,15 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
     auto scene = state.getChildWithName("SCENE");
     if (scene.isValid())
     {
-        setCurrentSceneName(scene.getProperty("name", "Untitled Scene").toString());
+        auto restoredName = scene.getProperty("name", "Project State").toString();
+        if (restoredName.isEmpty() || restoredName == "Untitled Scene")
+            restoredName = "Project State";
+        setCurrentSceneName(restoredName);
         state.removeChild(scene, nullptr);
     }
     else
     {
-        setCurrentSceneName("Untitled Scene");
+        setCurrentSceneName("Project State");
     }
 
     auto files = state.getChildWithName("FILES");

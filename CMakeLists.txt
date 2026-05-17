@@ -14,7 +14,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(SceneLooper
-    COMPANY_NAME "SceneLooper"
+    COMPANY_NAME "Echosynthesis"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -24,12 +24,19 @@ juce_add_plugin(SceneLooper
     PLUGIN_MANUFACTURER_CODE Sclp
     PLUGIN_CODE Slp1
     FORMATS VST3
-    PRODUCT_NAME "SceneLooper")
+    PRODUCT_NAME "Atmocycle")
 
 target_sources(SceneLooper
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp)
+
+if(APPLE)
+    add_custom_command(TARGET SceneLooper_VST3 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "$<TARGET_BUNDLE_DIR:SceneLooper_VST3>"
+            "$<TARGET_BUNDLE_DIR:SceneLooper_VST3>/../SceneLooper.vst3")
+endif()
 
 target_compile_definitions(SceneLooper
     PUBLIC

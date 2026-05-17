@@ -61,6 +61,24 @@ juce::Image getFigmaUiImage()
                                            BinaryData::atmocycle_figma_ui_pngSize);
 }
 
+juce::Image getLoadSceneButtonImage()
+{
+    return juce::ImageCache::getFromMemory(BinaryData::load_scene_button_png,
+                                           BinaryData::load_scene_button_pngSize);
+}
+
+juce::Image getSaveSceneButtonImage()
+{
+    return juce::ImageCache::getFromMemory(BinaryData::save_scene_button_png,
+                                           BinaryData::save_scene_button_pngSize);
+}
+
+juce::Image getRandomizationButtonImage()
+{
+    return juce::ImageCache::getFromMemory(BinaryData::randomization_button_png,
+                                           BinaryData::randomization_button_pngSize);
+}
+
 void makeHitZoneOnly(juce::Component& component)
 {
     component.setAlpha(0.01f);
@@ -89,6 +107,15 @@ juce::Rectangle<int> scaledBounds(float x, float y, float width, float height)
 juce::Rectangle<float> scaledBoundsF(float x, float y, float width, float height)
 {
     return { x * Theme::scaleX, y * Theme::scaleY, width * Theme::scaleX, height * Theme::scaleY };
+}
+
+void drawAssetButton(juce::Graphics& g, const juce::Image& image, juce::Rectangle<float> bounds)
+{
+    if (! image.isValid())
+        return;
+
+    g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
+    g.drawImage(image, bounds, juce::RectanglePlacement::stretchToFit, false);
 }
 
 void drawPlainValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
@@ -531,6 +558,10 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
+    drawAssetButton(g, getLoadSceneButtonImage(), scaledBoundsF(932.0f, 27.0f, 137.0f, 57.0f));
+    drawAssetButton(g, getSaveSceneButtonImage(), scaledBoundsF(1087.0f, 27.0f, 136.0f, 57.0f));
+    drawAssetButton(g, getRandomizationButtonImage(), scaledBoundsF(28.0f, 846.0f, 228.0f, 58.0f));
+
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
                                : processor.getCurrentSceneName();

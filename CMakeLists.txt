@@ -17,7 +17,10 @@ juce_add_binary_data(AtmocycleFigmaAssets
     SOURCES
         Source/Assets/FigmaUI/atmocycle_figma_ui.png
         Source/Assets/FigmaUI/control_states_reference.png
-        Source/Assets/FigmaUI/master_knobs_reference.png)
+        Source/Assets/FigmaUI/master_knobs_reference.png
+        Source/Assets/FigmaUI/load_scene_button.png
+        Source/Assets/FigmaUI/save_scene_button.png
+        Source/Assets/FigmaUI/randomization_button.png)
 
 juce_add_plugin(SceneLooper
     COMPANY_NAME "Echosynthesis"

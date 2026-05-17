@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
 #include <cmath>
 #include <initializer_list>
@@ -21,9 +22,12 @@ constexpr int editorWidth = 1280;
 constexpr int editorHeight = 720;
 constexpr int outerMargin = 12;
 constexpr int topPanelHeight = 164;
-constexpr int headerHeight = 0;
 constexpr int bottomStripHeight = 72;
-constexpr int rowHeight = 55;
+constexpr int figmaLayerRowX = 14;
+constexpr int figmaLayerRowY = 202;
+constexpr int figmaLayerRowWidth = 1252;
+constexpr int figmaLayerRowHeight = 52;
+constexpr int figmaLayerRowPitch = 55;
 
 juce::Colour layerColour(int layerIndex)
 {
@@ -53,24 +57,17 @@ void fillVerticalGradient(juce::Graphics& g, juce::Rectangle<float> bounds, juce
     g.setGradientFill(gradient);
     g.fillRoundedRectangle(bounds, 10.0f);
 }
-
-void drawPremiumPanel(juce::Graphics& g, juce::Rectangle<float> bounds, float radius = 9.0f)
-{
-    juce::ColourGradient gradient(juce::Colour(0xff062329), bounds.getX(), bounds.getY(),
-                                  juce::Colour(0xff010709), bounds.getRight(), bounds.getBottom(), false);
-    gradient.addColour(0.48, juce::Colour(0xff031519));
-    g.setGradientFill(gradient);
-    g.fillRoundedRectangle(bounds, radius);
-    g.setColour(cyan.withAlpha(0.045f));
-    g.fillRoundedRectangle(bounds.reduced(2.0f).withTrimmedBottom(bounds.getHeight() * 0.62f), radius - 1.0f);
-    g.setColour(juce::Colours::black.withAlpha(0.32f));
-    g.drawRoundedRectangle(bounds.reduced(1.5f), radius - 1.0f, 1.0f);
-    g.setColour(stroke.withAlpha(0.48f));
-    g.drawRoundedRectangle(bounds, radius, 0.8f);
-    g.setColour(cyan.withAlpha(0.12f));
-    g.drawLine(bounds.getX() + radius, bounds.getY() + 1.0f,
-               bounds.getRight() - radius, bounds.getY() + 1.0f, 0.7f);
 }
+
+juce::Image getFigmaUiImage()
+{
+    return juce::ImageCache::getFromMemory(BinaryData::atmocycle_figma_ui_png,
+                                           BinaryData::atmocycle_figma_ui_pngSize);
+}
+
+void makeHitZoneOnly(juce::Component& component)
+{
+    component.setAlpha(0.01f);
 }
 
 void drawValuePill(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
@@ -470,6 +467,31 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     {
         rows[(size_t) i] = std::make_unique<LayerRow>(processor, i);
         addAndMakeVisible(*rows[(size_t) i]);
+        makeHitZoneOnly(*rows[(size_t) i]);
+    }
+
+    for (auto* component : { static_cast<juce::Component*>(&titleLabel),
+                             static_cast<juce::Component*>(&bylineLabel),
+                             static_cast<juce::Component*>(&taglineLabel),
+                             static_cast<juce::Component*>(&sceneCaptionLabel),
+                             static_cast<juce::Component*>(&sceneNameLabel),
+                             static_cast<juce::Component*>(&masterLabel),
+                             static_cast<juce::Component*>(&globalXFadeLabel),
+                             static_cast<juce::Component*>(&masterLowCutLabel),
+                             static_cast<juce::Component*>(&masterHighCutLabel),
+                             static_cast<juce::Component*>(&randomizationLabel),
+                             static_cast<juce::Component*>(&randomStartLabel),
+                             static_cast<juce::Component*>(&masterMeterLabel),
+                             static_cast<juce::Component*>(&saveSceneButton),
+                             static_cast<juce::Component*>(&loadSceneButton),
+                             static_cast<juce::Component*>(&randomizeButton),
+                             static_cast<juce::Component*>(&masterSlider),
+                             static_cast<juce::Component*>(&globalXFadeSlider),
+                             static_cast<juce::Component*>(&masterLowCutSlider),
+                             static_cast<juce::Component*>(&masterHighCutSlider),
+                             static_cast<juce::Component*>(&randomStartSlider) })
+    {
+        makeHitZoneOnly(*component);
     }
 
     setSize(Theme::editorWidth, Theme::editorHeight);
@@ -486,184 +508,54 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff000506));
 
-    auto bounds = getLocalBounds().toFloat().reduced(8.0f);
-    juce::ColourGradient backgroundGlow(juce::Colour(0xff061f24), bounds.getX(), bounds.getY(),
-                                        juce::Colour(0xff000304), bounds.getRight(), bounds.getBottom(), false);
-    backgroundGlow.addColour(0.50, juce::Colour(0xff031114));
-    g.setGradientFill(backgroundGlow);
-    g.fillRoundedRectangle(bounds, 14.0f);
-
-    g.setColour(Theme::cyan.withAlpha(0.055f));
-    g.fillEllipse(bounds.getX() - 80.0f, bounds.getY() - 90.0f, 360.0f, 210.0f);
-    g.setColour(Theme::purple.withAlpha(0.08f));
-    g.fillEllipse(bounds.getX() - 60.0f, bounds.getY() - 45.0f, 190.0f, 130.0f);
-    g.setColour(Theme::stroke.withAlpha(0.62f));
-    g.drawRoundedRectangle(bounds, 14.0f, 0.9f);
-
-    auto layerDeck = getLocalBounds().reduced(Theme::outerMargin).toFloat();
-    layerDeck.removeFromTop((float) Theme::topPanelHeight + 8.0f);
-    layerDeck.removeFromBottom((float) Theme::bottomStripHeight + 6.0f);
-    juce::ColourGradient deckGradient(juce::Colour(0xff061c20).withAlpha(0.70f), layerDeck.getX(), layerDeck.getY(),
-                                      juce::Colour(0xff030b0e).withAlpha(0.82f), layerDeck.getRight(), layerDeck.getBottom(), false);
-    g.setGradientFill(deckGradient);
-    g.fillRoundedRectangle(layerDeck, 10.0f);
-    g.setColour(Theme::cyan.withAlpha(0.025f));
-    g.fillRoundedRectangle(layerDeck.reduced(7.0f).withTrimmedBottom(layerDeck.getHeight() * 0.62f), 9.0f);
-    g.setColour(Theme::stroke.withAlpha(0.34f));
-    g.drawRoundedRectangle(layerDeck, 10.0f, 0.75f);
-
-    const auto topPanel = getLocalBounds().reduced(Theme::outerMargin).removeFromTop(Theme::topPanelHeight).toFloat();
-    Theme::drawPremiumPanel(g, topPanel, 11.0f);
-
-    g.setColour(Theme::cyan.withAlpha(0.08f));
-    g.fillEllipse(34.0f, 24.0f, 62.0f, 62.0f);
-    g.setColour(Theme::purple.withAlpha(0.82f));
-    g.drawEllipse(35.0f, 25.0f, 60.0f, 60.0f, 1.5f);
-    g.setColour(Theme::cyan.withAlpha(0.80f));
-    g.drawLine(55.0f, 56.0f, 76.0f, 45.0f, 1.5f);
-    g.drawLine(76.0f, 45.0f, 85.0f, 64.0f, 1.5f);
-    g.drawLine(55.0f, 56.0f, 85.0f, 64.0f, 0.8f);
-
-    auto sceneGroup = sceneNameLabel.getBounds().getUnion(loadSceneButton.getBounds()).getUnion(saveSceneButton.getBounds()).toFloat().expanded(16.0f, 10.0f);
-    Theme::drawPremiumPanel(g, sceneGroup, 8.0f);
-
-    auto sceneBox = sceneNameLabel.getBounds().toFloat().expanded(22.0f, 9.0f);
-    juce::ColourGradient sceneGradient(juce::Colour(0xff0d3338), sceneBox.getX(), sceneBox.getY(),
-                                       juce::Colour(0xff071417), sceneBox.getRight(), sceneBox.getBottom(), false);
-    g.setGradientFill(sceneGradient);
-    g.fillRoundedRectangle(sceneBox, 7.0f);
-    g.setColour(Theme::cyan.withAlpha(0.09f));
-    g.fillRoundedRectangle(sceneBox.reduced(2.0f).withTrimmedBottom(sceneBox.getHeight() * 0.58f), 6.0f);
-    g.setColour(Theme::stroke.withAlpha(0.9f));
-    g.drawRoundedRectangle(sceneBox, 7.0f, 1.0f);
-
-    auto masterPanel = topPanel.withTrimmedTop(78.0f).reduced(14.0f, 7.0f);
-    Theme::drawPremiumPanel(g, masterPanel, 8.0f);
-    for (float x : { masterPanel.getX() + masterPanel.getWidth() * 0.25f,
-                     masterPanel.getX() + masterPanel.getWidth() * 0.50f,
-                     masterPanel.getX() + masterPanel.getWidth() * 0.75f })
+    const auto figmaUi = getFigmaUiImage();
+    if (figmaUi.isValid())
     {
-        juce::ColourGradient divider(Theme::cyan.withAlpha(0.0f), x, masterPanel.getY(),
-                                     Theme::cyan.withAlpha(0.10f), x, masterPanel.getCentreY(), false);
-        divider.addColour(1.0, Theme::cyan.withAlpha(0.0f));
-        g.setGradientFill(divider);
-        g.drawLine(x, masterPanel.getY() + 10.0f, x, masterPanel.getBottom() - 10.0f, 0.65f);
+        g.drawImage(figmaUi, getLocalBounds().toFloat(), juce::RectanglePlacement::stretchToFit, false);
+        return;
     }
 
-    const auto bottomStrip = getLocalBounds().reduced(Theme::outerMargin).removeFromBottom(Theme::bottomStripHeight).toFloat();
-    Theme::fillVerticalGradient(g, bottomStrip, juce::Colour(0xff062329), juce::Colour(0xff01080a));
-    g.setColour(Theme::cyan.withAlpha(0.035f));
-    g.fillRoundedRectangle(bottomStrip.reduced(8.0f).withTrimmedBottom(bottomStrip.getHeight() * 0.55f), 8.0f);
-    g.setColour(Theme::stroke.withAlpha(0.45f));
-    g.drawRoundedRectangle(bottomStrip, 9.0f, 0.8f);
-
-    auto randomPanel = bottomStrip.withWidth(355.0f).reduced(10.0f, 10.0f);
-    juce::ColourGradient randomGradient(juce::Colour(0xff113d42), randomPanel.getX(), randomPanel.getY(),
-                                        juce::Colour(0xff07171b), randomPanel.getRight(), randomPanel.getBottom(), false);
-    g.setGradientFill(randomGradient);
-    g.fillRoundedRectangle(randomPanel, 7.0f);
-    g.setColour(Theme::cyan.withAlpha(0.08f));
-    g.fillRoundedRectangle(randomPanel.reduced(2.0f).withTrimmedBottom(randomPanel.getHeight() * 0.54f), 6.0f);
-    g.setColour(Theme::stroke.withAlpha(0.62f));
-    g.drawRoundedRectangle(randomPanel, 7.0f, 0.9f);
-
-    auto dice = bottomStrip.withWidth(58.0f).reduced(15.0f, 18.0f);
-    g.setColour(Theme::cyan.withAlpha(0.12f));
-    g.fillRoundedRectangle(dice.expanded(7.0f, 5.0f), 6.0f);
-    g.setColour(Theme::text.withAlpha(0.82f));
-    g.drawRoundedRectangle(dice, 4.0f, 1.0f);
-    g.drawLine(dice.getX(), dice.getCentreY(), dice.getCentreX(), dice.getBottom(), 1.0f);
-    g.drawLine(dice.getRight(), dice.getCentreY(), dice.getCentreX(), dice.getBottom(), 1.0f);
-    g.fillEllipse(dice.getX() + 7.0f, dice.getY() + 7.0f, 3.0f, 3.0f);
-    g.fillEllipse(dice.getRight() - 10.0f, dice.getY() + 12.0f, 3.0f, 3.0f);
-
-    auto meterPanel = bottomStrip.withX(470.0f).withWidth(330.0f).reduced(8.0f, 8.0f);
-    auto meter = meterPanel.withTrimmedTop(23.0f).withTrimmedBottom(15.0f);
-    const int bars = 54;
-    const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
-    for (int i = 0; i < bars; ++i)
-    {
-        const float t = (float) i / (float) (bars - 1);
-        const bool active = t <= masterLevel;
-        const float barHeight = t < 0.33f ? 7.0f : (t < 0.66f ? 12.0f : 17.0f);
-        const auto barColour = Theme::purple.interpolatedWith(Theme::cyan, t);
-        const float x = meter.getX() + t * meter.getWidth();
-        g.setColour(active ? barColour.withAlpha(0.18f) : juce::Colour(0xff10282d).withAlpha(0.34f));
-        g.fillRoundedRectangle(x - 1.0f, meter.getBottom() - barHeight - 1.0f, 5.0f, barHeight + 2.0f, 1.2f);
-        g.setColour(barColour.withAlpha(active ? 0.92f : 0.28f));
-        g.fillRoundedRectangle(x, meter.getBottom() - barHeight, 3.0f, barHeight, 0.7f);
-    }
-
-    g.setColour(Theme::mutedText.withAlpha(0.76f));
-    g.setFont(juce::Font(7.8f, juce::Font::bold));
-    const char* ticks[] = { "-60", "-50", "-40", "-30", "-20", "-10", "0" };
-    for (int i = 0; i < 7; ++i)
-    {
-        const float t = (float) i / 6.0f;
-        const float x = meter.getX() + t * meter.getWidth();
-        g.drawFittedText(ticks[i], juce::Rectangle<int>((int) x - 13, (int) meter.getBottom() + 1, 26, 9),
-                         juce::Justification::centred, 1);
-    }
-
-    g.setColour(Theme::text.withAlpha(0.82f));
-    g.setFont(juce::Font(11.0f, juce::Font::bold));
-    g.drawFittedText(levelToDbText(masterLevel), bottomStrip.withX(805.0f).withWidth(82.0f).toNearestInt().reduced(0, 30),
-                     juce::Justification::centredLeft, 1);
-
-    juce::Path waveA;
-    juce::Path waveB;
-    juce::Path waveC;
-    auto waveArea = bottomStrip.withTrimmedLeft(870.0f).reduced(16.0f, 12.0f);
-    for (int i = 0; i < 220; ++i)
-    {
-        const float t = (float) i / 219.0f;
-        const float x = waveArea.getX() + t * waveArea.getWidth();
-        const float yA = waveArea.getCentreY() + std::sin(t * 17.0f + 0.5f) * 15.0f + std::sin(t * 41.0f) * 5.0f;
-        const float yB = waveArea.getCentreY() + std::sin(t * 14.0f + 2.1f) * 18.0f;
-        const float yC = waveArea.getCentreY() + std::sin(t * 22.0f + 1.4f) * 10.0f + std::sin(t * 9.0f) * 12.0f;
-        if (i == 0)
-        {
-            waveA.startNewSubPath(x, yA);
-            waveB.startNewSubPath(x, yB);
-            waveC.startNewSubPath(x, yC);
-        }
-        else
-        {
-            waveA.lineTo(x, yA);
-            waveB.lineTo(x, yB);
-            waveC.lineTo(x, yC);
-        }
-    }
-    g.setColour(Theme::purple.withAlpha(0.10f));
-    g.strokePath(waveA, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour(Theme::cyan.withAlpha(0.11f));
-    g.strokePath(waveB, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour(Theme::blue.withAlpha(0.09f));
-    g.strokePath(waveC, juce::PathStrokeType(4.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour(Theme::purple.withAlpha(0.54f));
-    g.strokePath(waveA, juce::PathStrokeType(1.45f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour(Theme::cyan.withAlpha(0.58f));
-    g.strokePath(waveB, juce::PathStrokeType(1.45f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour(Theme::blue.withAlpha(0.34f));
-    g.strokePath(waveC, juce::PathStrokeType(1.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    auto bounds = getLocalBounds().toFloat();
+    juce::ColourGradient fallback(juce::Colour(0xff001014), bounds.getX(), bounds.getY(),
+                                  juce::Colour(0xff000304), bounds.getRight(), bounds.getBottom(), false);
+    g.setGradientFill(fallback);
+    g.fillRect(bounds);
 }
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    auto drawMacroValue = [&g] (juce::Slider& slider, juce::Colour accent)
+    const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
+                               ? juce::String("Project State")
+                               : processor.getCurrentSceneName();
+
+    auto sceneBounds = sceneNameLabel.getBounds().toFloat().expanded(10.0f, 5.0f);
+    g.setColour(juce::Colour(0xff06191d).withAlpha(0.82f));
+    g.fillRoundedRectangle(sceneBounds, 5.5f);
+    g.setColour(Theme::text.withAlpha(0.92f));
+    g.setFont(juce::Font(13.0f, juce::Font::plain));
+    g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
+
+    const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
+    auto meter = juce::Rectangle<float>(486.0f, 674.0f, 171.0f, 18.0f);
+    g.setColour(juce::Colour(0xff021014).withAlpha(0.76f));
+    g.fillRoundedRectangle(meter.expanded(3.0f, 2.0f), 3.0f);
+
+    constexpr int bars = 34;
+    for (int i = 0; i < bars; ++i)
     {
-        auto value = slider.getBounds().withSizeKeepingCentre(86, 18);
-        value.setY(slider.getBottom() - 22);
-        drawValuePill(g, value, sliderValueText(slider), accent, 11.0f);
-    };
+        const float t = (float) i / (float) (bars - 1);
+        const bool active = t <= masterLevel;
+        const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
+        const auto x = meter.getX() + (float) i * 5.0f;
+        const auto h = juce::jmap(t, 7.0f, 18.0f);
+        g.setColour(active ? colour.withAlpha(0.92f) : juce::Colour(0xff0b2a30).withAlpha(0.36f));
+        g.fillRoundedRectangle(x, meter.getBottom() - h, 3.0f, h, 0.7f);
+    }
 
-    drawMacroValue(masterSlider, Theme::purple);
-    drawMacroValue(globalXFadeSlider, Theme::cyan);
-    drawMacroValue(masterLowCutSlider, Theme::blue);
-    drawMacroValue(masterHighCutSlider, Theme::purple);
-
-    auto randomValue = randomStartSlider.getBounds().translated(48, 15).withSizeKeepingCentre(72, 18);
-    drawValuePill(g, randomValue, sliderValueText(randomStartSlider), Theme::purple, 11.0f);
+    g.setColour(Theme::text.withAlpha(0.72f));
+    g.setFont(juce::Font(10.0f, juce::Font::plain));
+    g.drawFittedText(levelToDbText(masterLevel), juce::Rectangle<int>(713, 670, 72, 16),
+                     juce::Justification::centredLeft, 1);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -708,12 +600,15 @@ void SceneLooperAudioProcessorEditor::resized()
     randomStartSlider.setBounds(randomBlock.withSizeKeepingCentre(44, 44).translated(-16, 1));
     masterMeterLabel.setBounds(bottom.withX(462).withWidth(220).removeFromTop(18));
 
-    area.removeFromTop(Theme::headerHeight);
-    auto rowArea = area.reduced(0, 4);
-    for (auto& row : rows)
+    for (int i = 0; i < (int) rows.size(); ++i)
     {
-        if (row != nullptr)
-            row->setBounds(rowArea.removeFromTop(Theme::rowHeight));
+        if (rows[(size_t) i] != nullptr)
+        {
+            rows[(size_t) i]->setBounds(Theme::figmaLayerRowX,
+                                        Theme::figmaLayerRowY + i * Theme::figmaLayerRowPitch,
+                                        Theme::figmaLayerRowWidth,
+                                        Theme::figmaLayerRowHeight);
+        }
     }
 }
 

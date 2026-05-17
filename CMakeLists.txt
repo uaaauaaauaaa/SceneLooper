@@ -13,6 +13,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+juce_add_binary_data(AtmocycleFigmaAssets
+    SOURCES
+        Source/Assets/FigmaUI/atmocycle_figma_ui.png)
+
 juce_add_plugin(SceneLooper
     COMPANY_NAME "Echosynthesis"
     IS_SYNTH FALSE
@@ -46,6 +50,7 @@ target_compile_definitions(SceneLooper
 
 target_link_libraries(SceneLooper
     PRIVATE
+        AtmocycleFigmaAssets
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

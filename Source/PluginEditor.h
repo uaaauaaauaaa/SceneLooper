@@ -79,6 +79,7 @@ private:
         juce::Slider lpSlider;
         juce::Slider xfadeSlider;
         juce::Slider offsetSlider;
+        float displayedLayerMeter = 0.0f;
         std::unique_ptr<juce::FileChooser> fileChooser;
 
         std::unique_ptr<ButtonAttachment> onAttachment;

@@ -123,6 +123,25 @@ void drawDiskIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour
                bounds.getRight() - bounds.getWidth() * 0.20f, bounds.getBottom() - bounds.getHeight() * 0.36f, 1.1f);
 }
 
+void drawTinyFileBadge(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
+{
+    juce::ColourGradient fill(accent.withAlpha(0.78f), bounds.getX(), bounds.getY(),
+                              Theme::panelDeep.withAlpha(0.94f), bounds.getRight(), bounds.getBottom(), false);
+    g.setGradientFill(fill);
+    g.fillRoundedRectangle(bounds, 1.6f);
+    g.setColour(accent.withAlpha(0.76f));
+    g.drawRoundedRectangle(bounds, 1.6f, 0.8f);
+
+    juce::Path mark;
+    const auto c = bounds.getCentre();
+    mark.startNewSubPath(c.x - bounds.getWidth() * 0.17f, c.y - bounds.getHeight() * 0.18f);
+    mark.lineTo(c.x + bounds.getWidth() * 0.18f, c.y);
+    mark.lineTo(c.x - bounds.getWidth() * 0.17f, c.y + bounds.getHeight() * 0.18f);
+    mark.closeSubPath();
+    g.setColour(Theme::text.withAlpha(0.82f));
+    g.fillPath(mark);
+}
+
 void drawDiceIcon(juce::Graphics& g, juce::Rectangle<float> bounds)
 {
     const auto cyan = Theme::cyan.withAlpha(0.90f);
@@ -335,14 +354,27 @@ public:
         const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height).reduced(6.0f, 11.0f);
         const auto cy = bounds.getCentreY();
         const auto accent = slider.findColour(juce::Slider::trackColourId);
-        g.setColour(juce::Colour(0xff02090b));
-        g.fillRoundedRectangle(bounds.withHeight(5.0f).withCentre(juce::Point<float>(bounds.getCentreX(), cy)), 2.5f);
-        g.setColour(accent.withAlpha(0.16f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 4.0f, juce::jmax(0.0f, sliderPos - bounds.getX()), 8.0f), 4.0f);
-        g.setColour(accent.withAlpha(0.86f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 1.6f, juce::jmax(0.0f, sliderPos - bounds.getX()), 3.2f), 1.6f);
-        g.setColour(Theme::text.withAlpha(0.88f));
-        g.fillRoundedRectangle(sliderPos - 3.0f, cy - 8.5f, 6.0f, 17.0f, 2.0f);
+        const auto track = bounds.withHeight(4.0f).withCentre(juce::Point<float>(bounds.getCentreX(), cy));
+        g.setColour(juce::Colour(0xff02090b).withAlpha(0.92f));
+        g.fillRoundedRectangle(track.expanded(1.0f, 1.6f), 2.5f);
+        g.setColour(Theme::stroke.withAlpha(0.34f));
+        g.drawRoundedRectangle(track.expanded(1.0f, 1.6f), 2.5f, 0.7f);
+
+        juce::ColourGradient fill(accent.withAlpha(0.92f), bounds.getX(), cy,
+                                  Theme::cyan.withAlpha(0.92f), sliderPos, cy, false);
+        g.setGradientFill(fill);
+        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 2.0f,
+                                                      juce::jmax(0.0f, sliderPos - bounds.getX()), 4.0f), 2.0f);
+        g.setColour(accent.withAlpha(0.20f));
+        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 4.0f,
+                                                      juce::jmax(0.0f, sliderPos - bounds.getX()), 8.0f), 4.0f);
+
+        juce::ColourGradient thumb(Theme::text.withAlpha(0.94f), sliderPos - 3.0f, cy - 9.0f,
+                                   juce::Colour(0xff4c5d60), sliderPos + 3.0f, cy + 9.0f, false);
+        g.setGradientFill(thumb);
+        g.fillRoundedRectangle(sliderPos - 3.0f, cy - 9.0f, 6.0f, 18.0f, 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.30f));
+        g.drawLine(sliderPos - 1.0f, cy - 6.5f, sliderPos - 1.0f, cy + 6.5f, 0.7f);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&, bool shouldDrawButtonAsHighlighted,
@@ -352,23 +384,25 @@ public:
         if (button.getButtonText().equalsIgnoreCase("Load"))
         {
             const auto active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
-            const auto radius = 4.5f;
+            const auto radius = 5.0f;
             const auto accent = Theme::purple.interpolatedWith(Theme::cyan, 0.25f);
 
             g.setColour(juce::Colours::black.withAlpha(0.22f));
             g.fillRoundedRectangle(bounds.translated(0.0f, 1.0f), radius);
 
-            juce::ColourGradient fill(juce::Colour(0xff10282e).withAlpha(active ? 0.82f : 0.58f),
+            juce::ColourGradient fill(juce::Colour(0xff102b31).withAlpha(active ? 0.86f : 0.66f),
                                       bounds.getX(), bounds.getY(),
-                                      juce::Colour(0xff020709).withAlpha(active ? 0.92f : 0.76f),
+                                      juce::Colour(0xff020709).withAlpha(active ? 0.94f : 0.80f),
                                       bounds.getRight(), bounds.getBottom(), false);
             g.setGradientFill(fill);
             g.fillRoundedRectangle(bounds, radius);
 
-            g.setColour(accent.withAlpha(active ? 0.42f : 0.22f));
-            g.drawRoundedRectangle(bounds, radius, active ? 1.1f : 0.75f);
-            g.setColour(Theme::text.withAlpha(active ? 0.90f : 0.72f));
-            g.setFont(juce::Font(9.4f, juce::Font::plain));
+            g.setColour(juce::Colours::white.withAlpha(active ? 0.08f : 0.04f));
+            g.fillRoundedRectangle(bounds.reduced(1.5f).withTrimmedBottom(bounds.getHeight() * 0.58f), radius - 1.2f);
+            g.setColour(accent.withAlpha(active ? 0.50f : 0.28f));
+            g.drawRoundedRectangle(bounds, radius, active ? 1.05f : 0.8f);
+            g.setColour(Theme::text.withAlpha(active ? 0.92f : 0.78f));
+            g.setFont(juce::Font(9.8f, juce::Font::plain));
             g.drawFittedText("LOAD", button.getLocalBounds().reduced(5, 2), juce::Justification::centred, 1);
             return;
         }
@@ -836,6 +870,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
     const bool hasPreview = processor.copyWaveformPreview(layerIndex, preview);
     const float centreY = bounds.getCentreY();
 
+    auto drawEdgeMarker = [&g, bounds] (float x, bool right)
+    {
+        const auto y = bounds.getBottom() - 9.0f;
+        const auto h = 8.0f;
+        g.setColour(Theme::mutedText.withAlpha(0.54f));
+        g.drawLine(x, y, x, y + h, 1.15f);
+        g.drawLine(x, y, x + (right ? -3.2f : 3.2f), y, 1.15f);
+        g.drawLine(x, y + h, x + (right ? -3.2f : 3.2f), y + h, 1.15f);
+    };
+
+    drawEdgeMarker(bounds.getX() + 2.0f, false);
+    drawEdgeMarker(bounds.getRight() - 2.0f, true);
+
     if (! hasPreview)
     {
         g.setColour(accent.withAlpha(0.16f));
@@ -845,20 +892,25 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
     g.reduceClipRegion(bounds.toNearestInt());
 
-    const float usableHeight = bounds.getHeight() * 0.78f;
+    const float usableHeight = bounds.getHeight() * 0.90f;
     const float pointWidth = bounds.getWidth() / (float) SceneLooperAudioProcessor::waveformPreviewPoints;
     const float displayGain = processor.getLayerWaveformDisplayGain(layerIndex);
 
+    g.setColour(accent.withAlpha(0.12f));
+    g.drawLine(bounds.getX() + 6.0f, centreY, bounds.getRight() - 6.0f, centreY, 3.4f);
+
     for (int i = 0; i < SceneLooperAudioProcessor::waveformPreviewPoints; ++i)
     {
-        const float peak = juce::jlimit(0.0f, 1.0f, preview[(size_t) i] * displayGain);
+        const float previous = i > 0 ? preview[(size_t) i - 1] : preview[(size_t) i];
+        const float next = i + 1 < SceneLooperAudioProcessor::waveformPreviewPoints ? preview[(size_t) i + 1] : preview[(size_t) i];
+        const float peak = juce::jlimit(0.0f, 1.0f, (previous + preview[(size_t) i] * 1.8f + next) * 0.26f * displayGain);
         const float x = bounds.getX() + ((float) i + 0.5f) * pointWidth;
-        const float y = peak * usableHeight;
+        const float y = juce::jmax(0.8f, peak * usableHeight);
         const auto waveColour = accent.interpolatedWith(Theme::cyan, (float) i / (float) SceneLooperAudioProcessor::waveformPreviewPoints);
-        g.setColour(waveColour.withAlpha(0.18f));
-        g.fillRoundedRectangle(x - 1.7f, centreY - y - 1.8f, 3.4f, y * 2.0f + 3.6f, 1.4f);
+        g.setColour(waveColour.withAlpha(0.16f));
+        g.fillRoundedRectangle(x - 2.0f, centreY - y - 2.0f, 4.0f, y * 2.0f + 4.0f, 1.6f);
         g.setColour(waveColour.withAlpha(0.92f));
-        g.fillRoundedRectangle(x - 0.9f, centreY - y, 1.8f, y * 2.0f, 0.8f);
+        g.fillRoundedRectangle(x - 1.05f, centreY - y, 2.1f, y * 2.0f, 0.9f);
     }
 
     const auto cursorFraction = processor.getLayerPlaybackPositionFraction(layerIndex);
@@ -1097,7 +1149,10 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         g.drawFittedText(sliderValueText(slider), value, juce::Justification::centred, 1);
     };
 
-    drawTextValue(g, scaledBounds(548, 22, 126, 29), sliderValueText(volumeSlider), scaledFont(11.0f), juce::Justification::centredRight);
+    if (processor.isLayerLoaded(layerIndex))
+        drawTinyFileBadge(g, scaledBoundsF(93.0f, 10.5f, 12.0f, 12.0f), Theme::layerColour(layerIndex));
+
+    drawTextValue(g, scaledBounds(640, 21, 43, 30), sliderValueText(volumeSlider), scaledFont(11.2f), juce::Justification::centred);
     drawControlValue(panSlider, 46);
     drawControlValue(autoPanAmountSlider, 46);
     drawControlValue(autoPanRateSlider, 52);
@@ -1123,14 +1178,15 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
                            : (levelDb < -40.0f
                                   ? juce::jmap(juce::jlimit(-60.0f, -40.0f, levelDb), -60.0f, -40.0f, 0.16f, 0.92f)
                                   : juce::jmap(juce::jlimit(-40.0f, -6.0f, levelDb), -40.0f, -6.0f, 0.38f, 1.0f));
+    displayedLayerMeter = juce::jmax(level, displayedLayerMeter * 0.84f + level * 0.16f);
     for (int i = 0; i < segments; ++i)
     {
         const float t = (float) i / (float) (segments - 1);
-        const bool active = t <= level;
+        const bool active = t <= displayedLayerMeter;
         const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
         const auto segmentWidth = led.getWidth() / (float) segments;
         const auto x = led.getX() + (float) i * segmentWidth;
-        g.setColour(active ? colour.withAlpha(0.86f) : juce::Colour(0xff0b2a30).withAlpha(0.16f));
+        g.setColour(active ? colour.withAlpha(0.72f) : juce::Colour(0xff0b2a30).withAlpha(0.12f));
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.8f, segmentWidth - 1.6f), led.getHeight(), 0.55f);
     }
 }
@@ -1139,15 +1195,15 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(112, 10, 196, 18));
+    fileLabel.setBounds(scaledBounds(110, 10, 196, 18));
     waveformPreview.setBounds(scaledBounds(92, 25, 360, 36));
-    loadButton.setBounds(scaledBounds(372, 11, 56, 26));
+    loadButton.setBounds(scaledBounds(374, 10, 64, 26));
 
-    onButton.setBounds(scaledBounds(450, 19, 28, 28));
-    soloButton.setBounds(scaledBounds(484, 19, 28, 28));
-    autoPanButton.setBounds(scaledBounds(518, 19, 28, 28));
+    onButton.setBounds(scaledBounds(452, 19, 28, 28));
+    soloButton.setBounds(scaledBounds(488, 19, 28, 28));
+    autoPanButton.setBounds(scaledBounds(524, 19, 28, 28));
 
-    volumeSlider.setBounds(scaledBounds(548, 23, 106, 26));
+    volumeSlider.setBounds(scaledBounds(578, 22, 78, 26));
 
     auto placeKnob = [] (juce::Slider& slider, int centreX, int centreY, int size = 42)
     {

@@ -830,7 +830,7 @@ void SceneLooperAudioProcessorEditor::resized()
     randomizationLabel.setBounds(scaledBounds(78, 859, 150, 18));
     randomizeButton.setBounds(scaledBounds(29, 879, 225, 43));
     randomStartLabel.setBounds(scaledBounds(349, 859, 130, 18));
-    randomStartSlider.setBounds(scaledBounds(287, 849, 68, 68));
+    randomStartSlider.setBounds(scaledBounds(272, 856, 68, 68));
     masterMeterLabel.setBounds(scaledBounds(596, 859, 160, 18));
 
     for (int i = 0; i < (int) rows.size(); ++i)
@@ -1197,7 +1197,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
         const auto segmentWidth = led.getWidth() / (float) segments;
         const auto x = led.getX() + (float) i * segmentWidth;
-        g.setColour(active ? colour.withAlpha(0.72f) : juce::Colour(0xff0b2a30).withAlpha(0.12f));
+        g.setColour(active ? colour.withAlpha(0.36f) : juce::Colour(0xff0b2a30).withAlpha(0.08f));
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.6f, segmentWidth - 2.0f), led.getHeight(), 0.55f);
     }
 }

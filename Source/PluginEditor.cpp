@@ -93,34 +93,44 @@ juce::Rectangle<float> scaledBoundsF(float x, float y, float width, float height
 
 void drawFolderIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
 {
+    bounds = bounds.reduced(0.5f);
     juce::Path folder;
-    folder.startNewSubPath(bounds.getX(), bounds.getY() + bounds.getHeight() * 0.32f);
-    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.33f, bounds.getY() + bounds.getHeight() * 0.32f);
-    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.42f, bounds.getY() + bounds.getHeight() * 0.18f);
-    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.70f, bounds.getY() + bounds.getHeight() * 0.18f);
-    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.76f, bounds.getY() + bounds.getHeight() * 0.32f);
-    folder.lineTo(bounds.getRight(), bounds.getY() + bounds.getHeight() * 0.32f);
-    folder.lineTo(bounds.getRight(), bounds.getBottom());
+    folder.startNewSubPath(bounds.getX(), bounds.getY() + bounds.getHeight() * 0.36f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.34f, bounds.getY() + bounds.getHeight() * 0.36f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.43f, bounds.getY() + bounds.getHeight() * 0.22f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.73f, bounds.getY() + bounds.getHeight() * 0.22f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.80f, bounds.getY() + bounds.getHeight() * 0.36f);
+    folder.lineTo(bounds.getRight(), bounds.getY() + bounds.getHeight() * 0.36f);
+    folder.lineTo(bounds.getRight(), bounds.getBottom() - 0.5f);
+    folder.lineTo(bounds.getX(), bounds.getBottom() - 0.5f);
     folder.lineTo(bounds.getX(), bounds.getBottom());
     folder.closeSubPath();
 
-    g.setColour(accent.withAlpha(0.18f));
+    g.setColour(accent.withAlpha(0.12f));
     g.fillPath(folder);
-    g.setColour(accent.withAlpha(0.90f));
-    g.strokePath(folder, juce::PathStrokeType(1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(accent.withAlpha(0.84f));
+    g.strokePath(folder, juce::PathStrokeType(1.25f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void drawDiskIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
 {
-    g.setColour(accent.withAlpha(0.16f));
-    g.fillRoundedRectangle(bounds, 2.0f);
-    g.setColour(accent.withAlpha(0.88f));
-    g.drawRoundedRectangle(bounds, 2.0f, 1.3f);
-    g.drawRect(bounds.withTrimmedLeft(bounds.getWidth() * 0.58f).withTrimmedBottom(bounds.getHeight() * 0.62f), 1.1f);
-    g.drawLine(bounds.getX() + bounds.getWidth() * 0.24f, bounds.getBottom() - bounds.getHeight() * 0.25f,
-               bounds.getRight() - bounds.getWidth() * 0.20f, bounds.getBottom() - bounds.getHeight() * 0.25f, 1.1f);
-    g.drawLine(bounds.getX() + bounds.getWidth() * 0.24f, bounds.getBottom() - bounds.getHeight() * 0.36f,
-               bounds.getRight() - bounds.getWidth() * 0.20f, bounds.getBottom() - bounds.getHeight() * 0.36f, 1.1f);
+    bounds = bounds.reduced(0.5f);
+    g.setColour(accent.withAlpha(0.12f));
+    g.fillRoundedRectangle(bounds, 1.8f);
+    g.setColour(accent.withAlpha(0.84f));
+    g.drawRoundedRectangle(bounds, 1.8f, 1.25f);
+
+    auto notch = bounds.withTrimmedLeft(bounds.getWidth() * 0.58f)
+                       .withTrimmedRight(bounds.getWidth() * 0.15f)
+                       .withTrimmedBottom(bounds.getHeight() * 0.62f);
+    g.drawRoundedRectangle(notch, 0.8f, 1.0f);
+
+    const auto lineLeft = bounds.getX() + bounds.getWidth() * 0.24f;
+    const auto lineRight = bounds.getRight() - bounds.getWidth() * 0.20f;
+    g.drawLine(lineLeft, bounds.getBottom() - bounds.getHeight() * 0.27f,
+               lineRight, bounds.getBottom() - bounds.getHeight() * 0.27f, 1.1f);
+    g.drawLine(lineLeft, bounds.getBottom() - bounds.getHeight() * 0.39f,
+               lineRight, bounds.getBottom() - bounds.getHeight() * 0.39f, 1.1f);
 }
 
 void drawTinyFileBadge(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
@@ -212,10 +222,11 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
     g.setColour(accent.withAlpha(highlighted ? 0.48f : 0.25f));
     g.drawRoundedRectangle(area.reduced(1.0f), radius, highlighted ? 1.15f : 0.75f);
 
-    const auto icon = area.withTrimmedLeft(area.getWidth() * 0.16f)
-                          .withTrimmedRight(area.getWidth() * 0.66f)
-                          .withTrimmedTop(area.getHeight() * 0.32f)
-                          .withTrimmedBottom(area.getHeight() * 0.30f);
+    const auto iconSize = juce::jmin(area.getHeight() * 0.36f, area.getWidth() * 0.20f);
+    const auto icon = juce::Rectangle<float>(area.getX() + area.getWidth() * 0.16f,
+                                             area.getCentreY() - iconSize * 0.5f,
+                                             iconSize * 1.22f,
+                                             iconSize);
 
     if (save)
         drawDiskIcon(g, icon, accent);
@@ -223,8 +234,8 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
         drawFolderIcon(g, icon, accent);
 
     g.setColour(Theme::text.withAlpha(highlighted ? 0.92f : 0.82f));
-    g.setFont(juce::Font(scaledFont(15.0f), juce::Font::plain));
-    g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(48)).reduced(scaledX(4), 0),
+    g.setFont(juce::Font(scaledFont(14.2f), juce::Font::plain));
+    g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(50)).reduced(scaledX(4), 0),
                      juce::Justification::centredLeft, 1);
 }
 
@@ -750,8 +761,8 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    drawTopButtonContent(g, scaledBounds(976.0f, 28.0f, 141.0f, 60.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
-    drawTopButtonContent(g, scaledBounds(1135.0f, 28.0f, 141.0f, 60.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
+    drawTopButtonContent(g, scaledBounds(986.0f, 31.0f, 128.0f, 53.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
+    drawTopButtonContent(g, scaledBounds(1147.0f, 31.0f, 128.0f, 53.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
 
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
@@ -803,8 +814,8 @@ void SceneLooperAudioProcessorEditor::resized()
     taglineLabel.setBounds(scaledBounds(132, 76, 260, 18));
     sceneCaptionLabel.setBounds(scaledBounds(733, 13, 54, 18));
     sceneNameLabel.setBounds(scaledBounds(520, 28, 436, 60));
-    loadSceneButton.setBounds(scaledBounds(976, 28, 141, 60));
-    saveSceneButton.setBounds(scaledBounds(1135, 28, 141, 60));
+    loadSceneButton.setBounds(scaledBounds(986, 31, 128, 53));
+    saveSceneButton.setBounds(scaledBounds(1147, 31, 128, 53));
 
     masterLabel.setBounds(scaledBounds(162, 136, 150, 20));
     globalXFadeLabel.setBounds(scaledBounds(545, 136, 174, 20));
@@ -1169,8 +1180,8 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     g.drawFittedText(lengthLabel.getText(), scaledBounds(308, 10, 62, 18),
                      juce::Justification::centredRight, 1);
 
-    auto led = scaledBoundsF(92.0f, 57.0f, 360.0f, 8.0f);
-    const int segments = 46;
+    auto led = scaledBoundsF(106.0f, 63.0f, 318.0f, 5.5f);
+    const int segments = 40;
     const auto rawLevel = juce::jlimit(0.0f, 1.0f, processor.getLayerLevel(layerIndex));
     const auto levelDb = rawLevel > 0.000001f ? juce::Decibels::gainToDecibels(rawLevel) : -80.0f;
     const auto level = rawLevel <= 0.000001f
@@ -1187,7 +1198,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         const auto segmentWidth = led.getWidth() / (float) segments;
         const auto x = led.getX() + (float) i * segmentWidth;
         g.setColour(active ? colour.withAlpha(0.72f) : juce::Colour(0xff0b2a30).withAlpha(0.12f));
-        g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.8f, segmentWidth - 1.6f), led.getHeight(), 0.55f);
+        g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.6f, segmentWidth - 2.0f), led.getHeight(), 0.55f);
     }
 }
 

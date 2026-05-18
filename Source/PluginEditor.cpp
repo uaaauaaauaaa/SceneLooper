@@ -91,60 +91,6 @@ juce::Image getMasterKnobFramesImage()
                                            BinaryData::master_knob_frames_pngSize);
 }
 
-juce::Image getLayerLoadNormalImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_normal_png,
-                                           BinaryData::asset_layer_load_normal_pngSize);
-}
-
-juce::Image getLayerLoadHoverImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_hover_png,
-                                           BinaryData::asset_layer_load_hover_pngSize);
-}
-
-juce::Image getLayerLoadDownImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_down_png,
-                                           BinaryData::asset_layer_load_down_pngSize);
-}
-
-juce::Image getPowerOffImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_power_off_png,
-                                           BinaryData::asset_power_off_pngSize);
-}
-
-juce::Image getPowerOnImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_power_on_png,
-                                           BinaryData::asset_power_on_pngSize);
-}
-
-juce::Image getSoloOffImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_solo_off_png,
-                                           BinaryData::asset_solo_off_pngSize);
-}
-
-juce::Image getSoloOnImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_solo_on_png,
-                                           BinaryData::asset_solo_on_pngSize);
-}
-
-juce::Image getApOffImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_ap_off_png,
-                                           BinaryData::asset_ap_off_pngSize);
-}
-
-juce::Image getApOnImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::asset_ap_on_png,
-                                           BinaryData::asset_ap_on_pngSize);
-}
-
 void makeHitZoneOnly(juce::Component& component)
 {
     component.setAlpha(0.01f);
@@ -182,15 +128,6 @@ void drawAssetButton(juce::Graphics& g, const juce::Image& image, juce::Rectangl
 
     g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
     g.drawImage(image, bounds, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, false);
-}
-
-void drawAssetStretch(juce::Graphics& g, const juce::Image& image, juce::Rectangle<float> bounds)
-{
-    if (! image.isValid())
-        return;
-
-    g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-    g.drawImage(image, bounds, juce::RectanglePlacement::stretchToFit, false);
 }
 
 int smallKnobRowForAccent(juce::Colour accent)
@@ -401,11 +338,32 @@ public:
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         if (button.getButtonText().equalsIgnoreCase("Load"))
         {
-            drawAssetStretch(g,
-                             shouldDrawButtonAsDown ? getLayerLoadDownImage()
-                                                    : (shouldDrawButtonAsHighlighted ? getLayerLoadHoverImage()
-                                                                                     : getLayerLoadNormalImage()),
-                             bounds);
+            const auto active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+            const auto accent = active ? Theme::cyan : Theme::stroke;
+            const auto radius = 5.5f;
+
+            g.setColour(juce::Colours::black.withAlpha(0.30f));
+            g.fillRoundedRectangle(bounds.translated(0.0f, 1.2f), radius);
+
+            if (active)
+            {
+                g.setColour(Theme::cyan.withAlpha(0.16f));
+                g.fillRoundedRectangle(bounds.expanded(2.0f, 1.4f), radius + 2.0f);
+                g.setColour(Theme::purple.withAlpha(0.10f));
+                g.fillRoundedRectangle(bounds.expanded(4.0f, 2.2f), radius + 3.0f);
+            }
+
+            juce::ColourGradient fill(juce::Colour(0xff12323a), bounds.getX(), bounds.getY(),
+                                      juce::Colour(0xff02090b), bounds.getRight(), bounds.getBottom(), false);
+            fill.addColour(0.48, juce::Colour(0xff071c21));
+            g.setGradientFill(fill);
+            g.fillRoundedRectangle(bounds, radius);
+
+            g.setColour(juce::Colours::white.withAlpha(active ? 0.12f : 0.07f));
+            g.fillRoundedRectangle(bounds.reduced(2.0f).withTrimmedBottom(bounds.getHeight() * 0.58f), radius - 1.0f);
+
+            g.setColour(accent.withAlpha(active ? 0.95f : 0.48f));
+            g.drawRoundedRectangle(bounds, radius, active ? 1.25f : 0.85f);
             return;
         }
 
@@ -422,11 +380,9 @@ public:
 
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) override
     {
-        if (button.getButtonText().equalsIgnoreCase("Load"))
-            return;
-
-        g.setColour(Theme::text.withAlpha(button.isEnabled() ? 0.84f : 0.35f));
-        g.setFont(juce::Font(9.5f));
+        const auto isLoad = button.getButtonText().equalsIgnoreCase("Load");
+        g.setColour(Theme::text.withAlpha(button.isEnabled() ? (isLoad ? 0.90f : 0.84f) : 0.35f));
+        g.setFont(juce::Font(isLoad ? 10.0f : 9.5f));
         g.drawFittedText(button.getButtonText(), button.getLocalBounds().reduced(5, 2),
                          juce::Justification::centred, 1);
     }
@@ -437,19 +393,90 @@ public:
         const auto on = button.getToggleState();
         if (button.getButtonText() == "On")
         {
-            drawAssetButton(g, on ? getPowerOnImage() : getPowerOffImage(), bounds.expanded(2.0f));
+            auto circle = bounds.withSizeKeepingCentre(28.0f, 28.0f);
+            const auto accent = on ? Theme::purple : Theme::stroke;
+
+            g.setColour(accent.withAlpha(on ? 0.16f : 0.05f));
+            g.fillEllipse(circle.expanded(on ? 4.0f : 2.0f));
+            g.setColour(juce::Colours::black.withAlpha(0.34f));
+            g.fillEllipse(circle.translated(0.0f, 1.2f));
+
+            juce::ColourGradient fill(juce::Colour(0xff143039), circle.getX(), circle.getY(),
+                                      juce::Colour(0xff020507), circle.getRight(), circle.getBottom(), true);
+            fill.addColour(0.55, juce::Colour(0xff071219));
+            g.setGradientFill(fill);
+            g.fillEllipse(circle);
+
+            g.setColour(juce::Colours::white.withAlpha(0.10f));
+            g.fillEllipse(circle.reduced(6.0f).withTrimmedBottom(circle.getHeight() * 0.62f).translated(-2.0f, -1.5f));
+            g.setColour(accent.withAlpha(on ? 0.86f : 0.48f));
+            g.drawEllipse(circle, on ? 1.35f : 0.9f);
+
+            const auto centre = circle.getCentre();
+            juce::Path powerArc;
+            powerArc.addCentredArc(centre.x, centre.y + 1.0f, 7.2f, 7.2f, 0.0f,
+                                   -2.35f, 2.35f, true);
+            g.setColour((on ? Theme::text : Theme::mutedText).withAlpha(on ? 0.94f : 0.62f));
+            g.strokePath(powerArc, juce::PathStrokeType(2.25f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.drawLine(centre.x, centre.y - 9.0f, centre.x, centre.y - 1.5f, 2.25f);
             return;
         }
 
         if (button.getButtonText() == "S")
         {
-            drawAssetButton(g, on ? getSoloOnImage() : getSoloOffImage(), bounds.expanded(1.0f));
+            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(26.0f, 26.0f);
+            const auto accent = on ? Theme::purple : Theme::stroke;
+
+            if (on)
+            {
+                g.setColour(Theme::purple.withAlpha(0.13f));
+                g.fillRoundedRectangle(box.expanded(3.0f), 6.0f);
+            }
+
+            juce::ColourGradient fill(on ? juce::Colour(0xff17203d) : juce::Colour(0xff102b32),
+                                      box.getX(), box.getY(),
+                                      juce::Colour(0xff02070a), box.getRight(), box.getBottom(), false);
+            g.setGradientFill(fill);
+            g.fillRoundedRectangle(box, 5.5f);
+            g.setColour(accent.withAlpha(on ? 0.70f : 0.46f));
+            g.drawRoundedRectangle(box, 5.5f, 1.0f);
+            g.setColour((on ? Theme::text : Theme::mutedText).withAlpha(on ? 0.95f : 0.70f));
+            g.setFont(juce::Font(15.0f, juce::Font::plain));
+            g.drawFittedText("S", box.toNearestInt().reduced(3), juce::Justification::centred, 1);
             return;
         }
 
         if (button.getButtonText() == "AP")
         {
-            drawAssetButton(g, on ? getApOnImage() : getApOffImage(), bounds.expanded(1.5f));
+            auto circle = bounds.withSizeKeepingCentre(28.0f, 28.0f);
+            const auto accent = on ? Theme::cyan : Theme::stroke;
+
+            g.setColour(accent.withAlpha(on ? 0.13f : 0.04f));
+            g.fillEllipse(circle.expanded(on ? 3.5f : 1.8f));
+            g.setColour(juce::Colours::black.withAlpha(0.34f));
+            g.fillEllipse(circle.translated(0.0f, 1.2f));
+
+            juce::ColourGradient fill(juce::Colour(0xff123039), circle.getX(), circle.getY(),
+                                      juce::Colour(0xff020609), circle.getRight(), circle.getBottom(), true);
+            g.setGradientFill(fill);
+            g.fillEllipse(circle);
+            g.setColour(accent.withAlpha(on ? 0.90f : 0.48f));
+            g.drawEllipse(circle, on ? 1.25f : 0.9f);
+
+            juce::Path wave;
+            const auto waveArea = circle.reduced(6.0f, 8.0f);
+            for (int i = 0; i < 24; ++i)
+            {
+                const float t = (float) i / 23.0f;
+                const float xx = waveArea.getX() + t * waveArea.getWidth();
+                const float yy = waveArea.getCentreY() + std::sin(t * juce::MathConstants<float>::twoPi) * waveArea.getHeight() * 0.36f;
+                if (i == 0)
+                    wave.startNewSubPath(xx, yy);
+                else
+                    wave.lineTo(xx, yy);
+            }
+            g.setColour((on ? Theme::cyan : Theme::mutedText).withAlpha(on ? 0.94f : 0.62f));
+            g.strokePath(wave, juce::PathStrokeType(1.9f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             return;
         }
 

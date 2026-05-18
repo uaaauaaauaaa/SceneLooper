@@ -187,6 +187,8 @@ void SceneLooperAudioProcessor::resetLayerPlayback()
     }
 
     masterOutputLevel.store(0.0f, std::memory_order_relaxed);
+    masterOutputLevelLeft.store(0.0f, std::memory_order_relaxed);
+    masterOutputLevelRight.store(0.0f, std::memory_order_relaxed);
     for (auto& f : masterHP) f.reset();
     for (auto& f : masterLP) f.reset();
 }
@@ -395,6 +397,16 @@ float SceneLooperAudioProcessor::getLayerWaveformDisplayGain(int layerIndex) con
 float SceneLooperAudioProcessor::getMasterLevel() const
 {
     return masterOutputLevel.load(std::memory_order_relaxed);
+}
+
+float SceneLooperAudioProcessor::getMasterLeftLevel() const
+{
+    return masterOutputLevelLeft.load(std::memory_order_relaxed);
+}
+
+float SceneLooperAudioProcessor::getMasterRightLevel() const
+{
+    return masterOutputLevelRight.load(std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::randomizeLayerStarts()
@@ -717,6 +729,8 @@ void SceneLooperAudioProcessor::applyMasterProcessing(juce::AudioBuffer<float>& 
     const float lowCut = apvts.getRawParameterValue("masterLowCut")->load();
     const float highCut = apvts.getRawParameterValue("masterHighCut")->load();
     float peak = 0.0f;
+    float leftPeak = 0.0f;
+    float rightPeak = 0.0f;
 
     for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
     {
@@ -733,12 +747,26 @@ void SceneLooperAudioProcessor::applyMasterProcessing(juce::AudioBuffer<float>& 
                 value = lp.processLowPass(value, highCut, currentSampleRate);
 
             data[sample] = value;
-            peak = juce::jmax(peak, std::abs(value));
+            const auto absValue = std::abs(value);
+            peak = juce::jmax(peak, absValue);
+            if (channel == 0)
+                leftPeak = juce::jmax(leftPeak, absValue);
+            else if (channel == 1)
+                rightPeak = juce::jmax(rightPeak, absValue);
         }
     }
 
     const auto previous = masterOutputLevel.load(std::memory_order_relaxed);
     masterOutputLevel.store(juce::jlimit(0.0f, 1.0f, juce::jmax(peak, previous * 0.82f)),
+        std::memory_order_relaxed);
+    const auto previousLeft = masterOutputLevelLeft.load(std::memory_order_relaxed);
+    const auto previousRight = masterOutputLevelRight.load(std::memory_order_relaxed);
+    if (buffer.getNumChannels() == 1)
+        rightPeak = leftPeak;
+
+    masterOutputLevelLeft.store(juce::jlimit(0.0f, 1.0f, juce::jmax(leftPeak, previousLeft * 0.82f)),
+        std::memory_order_relaxed);
+    masterOutputLevelRight.store(juce::jlimit(0.0f, 1.0f, juce::jmax(rightPeak, previousRight * 0.82f)),
         std::memory_order_relaxed);
 }
 

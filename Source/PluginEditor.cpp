@@ -61,16 +61,6 @@ juce::Image getFigmaUiImage()
                                            BinaryData::atmocycle_figma_ui_pngSize);
 }
 
-juce::Image getLayerLoadButtonImage(bool isDown)
-{
-    if (isDown)
-        return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_down_png,
-                                               BinaryData::asset_layer_load_down_pngSize);
-
-    return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_normal_png,
-                                           BinaryData::asset_layer_load_normal_pngSize);
-}
-
 void makeHitZoneOnly(juce::Component& component)
 {
     component.setAlpha(0.01f);
@@ -188,10 +178,21 @@ void drawDiceIcon(juce::Graphics& g, juce::Rectangle<float> bounds)
     dot(x + w * 0.72f, y + h * 0.63f, 1.5f, Theme::text.withAlpha(0.74f));
 }
 
-void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text, bool save)
+void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text, bool save, bool highlighted)
 {
     const auto area = bounds.toFloat();
     const auto accent = Theme::purple.interpolatedWith(Theme::cyan, save ? 0.14f : 0.34f);
+    const auto radius = scaledY(7.0f);
+
+    juce::ColourGradient fill(juce::Colour(0xff071c21).withAlpha(highlighted ? 0.68f : 0.38f),
+                              area.getX(), area.getY(),
+                              juce::Colour(0xff02080a).withAlpha(highlighted ? 0.76f : 0.50f),
+                              area.getRight(), area.getBottom(), false);
+    g.setGradientFill(fill);
+    g.fillRoundedRectangle(area.reduced(1.0f), radius);
+    g.setColour(accent.withAlpha(highlighted ? 0.48f : 0.25f));
+    g.drawRoundedRectangle(area.reduced(1.0f), radius, highlighted ? 1.15f : 0.75f);
+
     const auto icon = area.withTrimmedLeft(area.getWidth() * 0.16f)
                           .withTrimmedRight(area.getWidth() * 0.66f)
                           .withTrimmedTop(area.getHeight() * 0.32f)
@@ -202,7 +203,7 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
     else
         drawFolderIcon(g, icon, accent);
 
-    g.setColour(Theme::text.withAlpha(0.82f));
+    g.setColour(Theme::text.withAlpha(highlighted ? 0.92f : 0.82f));
     g.setFont(juce::Font(scaledFont(15.0f), juce::Font::plain));
     g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(48)).reduced(scaledX(4), 0),
                      juce::Justification::centredLeft, 1);
@@ -271,7 +272,9 @@ public:
         const auto radius = r.getWidth() * 0.5f;
         const auto centre = r.getCentre();
         const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
-        const auto glow = juce::jlimit(0.0f, 1.0f, sliderPos);
+        const bool invertGlow = slider.getName().containsIgnoreCase("HighCut");
+        const auto displayPos = juce::jlimit(0.0f, 1.0f, invertGlow ? 1.0f - sliderPos : sliderPos);
+        const auto glow = displayPos;
 
         const auto innerGlow = 1.6f + glow * 1.2f;
         const auto outerGlow = 2.4f + glow * 0.8f;
@@ -306,7 +309,7 @@ public:
         const auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
         juce::Path value;
         value.addCentredArc(centre.x, centre.y, radius - 3.4f, radius - 3.4f, 0.0f,
-                            rotaryStartAngle, angle, true);
+                            rotaryStartAngle, rotaryStartAngle + displayPos * (rotaryEndAngle - rotaryStartAngle), true);
         g.setColour(accent.withAlpha(0.11f + glow * 0.14f));
         g.strokePath(value, juce::PathStrokeType(7.0f + glow * 2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         g.setColour(accent.withAlpha(0.68f + glow * 0.24f));
@@ -348,12 +351,25 @@ public:
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         if (button.getButtonText().equalsIgnoreCase("Load"))
         {
-            const auto image = getLayerLoadButtonImage(shouldDrawButtonAsDown);
-            if (image.isValid())
-            {
-                g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-                g.drawImage(image, bounds.expanded(4.0f, 2.0f), juce::RectanglePlacement::stretchToFit, false);
-            }
+            const auto active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+            const auto radius = 4.5f;
+            const auto accent = Theme::purple.interpolatedWith(Theme::cyan, 0.25f);
+
+            g.setColour(juce::Colours::black.withAlpha(0.22f));
+            g.fillRoundedRectangle(bounds.translated(0.0f, 1.0f), radius);
+
+            juce::ColourGradient fill(juce::Colour(0xff10282e).withAlpha(active ? 0.82f : 0.58f),
+                                      bounds.getX(), bounds.getY(),
+                                      juce::Colour(0xff020709).withAlpha(active ? 0.92f : 0.76f),
+                                      bounds.getRight(), bounds.getBottom(), false);
+            g.setGradientFill(fill);
+            g.fillRoundedRectangle(bounds, radius);
+
+            g.setColour(accent.withAlpha(active ? 0.42f : 0.22f));
+            g.drawRoundedRectangle(bounds, radius, active ? 1.1f : 0.75f);
+            g.setColour(Theme::text.withAlpha(active ? 0.90f : 0.72f));
+            g.setFont(juce::Font(9.4f, juce::Font::plain));
+            g.drawFittedText("LOAD", button.getLocalBounds().reduced(5, 2), juce::Justification::centred, 1);
             return;
         }
 
@@ -371,7 +387,7 @@ public:
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) override
     {
         const auto isLoad = button.getButtonText().equalsIgnoreCase("Load");
-        if (isLoad && getLayerLoadButtonImage(false).isValid())
+        if (isLoad)
             return;
 
         g.setColour(Theme::text.withAlpha(button.isEnabled() ? (isLoad ? 0.90f : 0.84f) : 0.35f));
@@ -386,7 +402,7 @@ public:
         const auto on = button.getToggleState();
         if (button.getButtonText() == "On")
         {
-            auto circle = bounds.withSizeKeepingCentre(28.0f, 28.0f);
+            auto circle = bounds.withSizeKeepingCentre(24.0f, 24.0f);
             const auto accent = on ? Theme::purple : Theme::stroke;
 
             g.setColour(accent.withAlpha(on ? 0.16f : 0.05f));
@@ -417,7 +433,7 @@ public:
 
         if (button.getButtonText() == "S")
         {
-            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(26.0f, 26.0f);
+            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(24.0f, 24.0f);
             const auto accent = on ? Theme::purple : Theme::stroke;
 
             if (on)
@@ -441,7 +457,7 @@ public:
 
         if (button.getButtonText() == "AP")
         {
-            auto circle = bounds.withSizeKeepingCentre(28.0f, 28.0f);
+            auto circle = bounds.withSizeKeepingCentre(24.0f, 24.0f);
             const auto accent = on ? Theme::cyan : Theme::stroke;
 
             g.setColour(accent.withAlpha(on ? 0.13f : 0.04f));
@@ -700,8 +716,8 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    drawTopButtonContent(g, scaledBounds(976.0f, 28.0f, 141.0f, 60.0f), "LOAD SCENE", false);
-    drawTopButtonContent(g, scaledBounds(1135.0f, 28.0f, 141.0f, 60.0f), "SAVE SCENE", true);
+    drawTopButtonContent(g, scaledBounds(976.0f, 28.0f, 141.0f, 60.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
+    drawTopButtonContent(g, scaledBounds(1135.0f, 28.0f, 141.0f, 60.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
 
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
@@ -717,31 +733,33 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     drawTextValue(g, scaledBounds(1378, 167, 157, 43), sliderValueText(masterHighCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
 
     const auto randomSlot = scaledBounds(29, 879, 225, 43);
-    drawDiceIcon(g, randomSlot.toFloat().withTrimmedLeft(scaledX(16)).withTrimmedRight(scaledX(166)).reduced(0.0f, scaledY(5.0f)));
-    g.setColour(Theme::text.withAlpha(0.78f));
-    g.setFont(juce::Font(scaledFont(13.8f), juce::Font::plain));
-    g.drawFittedText("RANDOMIZATION", randomSlot.withTrimmedLeft(scaledX(55)).withTrimmedRight(scaledX(28)),
-                     juce::Justification::centredLeft, 1);
+    drawDiceIcon(g, randomSlot.toFloat().withTrimmedLeft(scaledX(25)).withTrimmedRight(scaledX(160)).reduced(0.0f, scaledY(5.0f)));
 
     drawTextValue(g, scaledBounds(337, 879, 127, 43), sliderValueText(randomStartSlider), scaledFont(13.8f), juce::Justification::centred);
 
-    const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
-    auto ledArea = scaledBoundsF(596.0f, 883.0f, 326.0f, 24.0f);
+    const auto masterLeft = juce::jlimit(0.0f, 1.0f, processor.getMasterLeftLevel());
+    const auto masterRight = juce::jlimit(0.0f, 1.0f, processor.getMasterRightLevel());
+    auto ledArea = scaledBoundsF(596.0f, 883.0f, 326.0f, 25.0f);
 
     constexpr int bars = 45;
-    for (int i = 0; i < bars; ++i)
+    auto drawMeterRow = [&g, &ledArea] (float level, float y, float h)
     {
-        const float t = (float) i / (float) (bars - 1);
-        const bool active = t <= masterLevel;
-        const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
-        const auto segmentWidth = ledArea.getWidth() / (float) bars;
-        const auto x = ledArea.getX() + (float) i * segmentWidth;
-        const auto h = juce::jmap(t, 10.0f, ledArea.getHeight());
-        g.setColour(active ? colour.withAlpha(0.90f) : juce::Colour(0xff0b2a30).withAlpha(0.10f));
-        g.fillRoundedRectangle(x, ledArea.getBottom() - h, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.8f);
-    }
+        for (int i = 0; i < bars; ++i)
+        {
+            const float t = (float) i / (float) (bars - 1);
+            const bool active = t <= level;
+            const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
+            const auto segmentWidth = ledArea.getWidth() / (float) bars;
+            const auto x = ledArea.getX() + (float) i * segmentWidth;
+            g.setColour(active ? colour.withAlpha(0.88f) : juce::Colour(0xff0b2a30).withAlpha(0.12f));
+            g.fillRoundedRectangle(x, y, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.7f);
+        }
+    };
 
-    drawTextValue(g, scaledBounds(536, 883, 58, 26), levelToDbText(masterLevel), scaledFont(12.5f), juce::Justification::centredRight);
+    drawMeterRow(masterLeft, ledArea.getY() + scaledY(1.0f), scaledY(7.0f));
+    drawMeterRow(masterRight, ledArea.getY() + scaledY(12.0f), scaledY(7.0f));
+
+    drawTextValue(g, scaledBounds(536, 883, 58, 26), levelToDbText(juce::jmax(masterLeft, masterRight)), scaledFont(12.5f), juce::Justification::centredRight);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -1093,13 +1111,11 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
 
     g.setColour(Theme::mutedText.withAlpha(0.88f));
     g.setFont(juce::Font(scaledFont(10.4f), juce::Font::plain));
-    g.drawFittedText(lengthLabel.getText(), scaledBounds(1502, 17, 116, 18),
-                     juce::Justification::centredRight, 1);
-    g.drawFittedText(remainLabel.getText(), scaledBounds(1502, 34, 116, 18),
+    g.drawFittedText(lengthLabel.getText(), scaledBounds(308, 10, 62, 18),
                      juce::Justification::centredRight, 1);
 
-    auto led = scaledBoundsF(1504.0f, 54.0f, 112.0f, 9.0f);
-    const int segments = 28;
+    auto led = scaledBoundsF(92.0f, 57.0f, 360.0f, 8.0f);
+    const int segments = 46;
     const auto rawLevel = juce::jlimit(0.0f, 1.0f, processor.getLayerLevel(layerIndex));
     const auto levelDb = rawLevel > 0.000001f ? juce::Decibels::gainToDecibels(rawLevel) : -80.0f;
     const auto level = rawLevel <= 0.000001f
@@ -1123,13 +1139,13 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(112, 10, 258, 18));
+    fileLabel.setBounds(scaledBounds(112, 10, 196, 18));
     waveformPreview.setBounds(scaledBounds(92, 25, 360, 36));
-    loadButton.setBounds(scaledBounds(364, 11, 76, 28));
+    loadButton.setBounds(scaledBounds(372, 11, 56, 26));
 
-    onButton.setBounds(scaledBounds(428, 18, 34, 34));
-    soloButton.setBounds(scaledBounds(464, 18, 34, 34));
-    autoPanButton.setBounds(scaledBounds(500, 18, 34, 34));
+    onButton.setBounds(scaledBounds(450, 19, 28, 28));
+    soloButton.setBounds(scaledBounds(484, 19, 28, 28));
+    autoPanButton.setBounds(scaledBounds(518, 19, 28, 28));
 
     volumeSlider.setBounds(scaledBounds(548, 23, 106, 26));
 

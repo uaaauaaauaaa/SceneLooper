@@ -51,6 +51,8 @@ public:
     float getLayerLevel(int layerIndex) const;
     float getLayerWaveformDisplayGain(int layerIndex) const;
     float getMasterLevel() const;
+    float getMasterLeftLevel() const;
+    float getMasterRightLevel() const;
     void randomizeLayerStarts();
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
@@ -106,6 +108,8 @@ private:
     juce::Random random;
     double currentSampleRate = 48000.0;
     std::atomic<float> masterOutputLevel { 0.0f };
+    std::atomic<float> masterOutputLevelLeft { 0.0f };
+    std::atomic<float> masterOutputLevelRight { 0.0f };
     OnePoleFilter masterHP[2];
     OnePoleFilter masterLP[2];
     juce::String currentSceneName { "Project State" };

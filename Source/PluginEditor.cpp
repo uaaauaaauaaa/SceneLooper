@@ -18,8 +18,8 @@ const juce::Colour purple { 0xff8e45ee };
 const juce::Colour text { 0xffd9d8ce };
 const juce::Colour mutedText { 0xffaeb6ad };
 
-constexpr int designWidth = 1600;
-constexpr int designHeight = 960;
+constexpr int designWidth = 1672;
+constexpr int designHeight = 941;
 constexpr int editorWidth = 1208;
 constexpr int editorHeight = 680;
 constexpr float scaleX = (float) editorWidth / (float) designWidth;
@@ -61,16 +61,14 @@ juce::Image getFigmaUiImage()
                                            BinaryData::atmocycle_figma_ui_pngSize);
 }
 
-juce::Image getLoadSceneButtonImage()
+juce::Image getLayerLoadButtonImage(bool isDown)
 {
-    return juce::ImageCache::getFromMemory(BinaryData::load_scene_button_png,
-                                           BinaryData::load_scene_button_pngSize);
-}
+    if (isDown)
+        return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_down_png,
+                                               BinaryData::asset_layer_load_down_pngSize);
 
-juce::Image getSaveSceneButtonImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::save_scene_button_png,
-                                           BinaryData::save_scene_button_pngSize);
+    return juce::ImageCache::getFromMemory(BinaryData::asset_layer_load_normal_png,
+                                           BinaryData::asset_layer_load_normal_pngSize);
 }
 
 void makeHitZoneOnly(juce::Component& component)
@@ -103,23 +101,111 @@ juce::Rectangle<float> scaledBoundsF(float x, float y, float width, float height
     return { x * Theme::scaleX, y * Theme::scaleY, width * Theme::scaleX, height * Theme::scaleY };
 }
 
-void drawAssetButton(juce::Graphics& g, const juce::Image& image, juce::Rectangle<float> bounds)
+void drawFolderIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
 {
-    if (! image.isValid())
-        return;
+    juce::Path folder;
+    folder.startNewSubPath(bounds.getX(), bounds.getY() + bounds.getHeight() * 0.32f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.33f, bounds.getY() + bounds.getHeight() * 0.32f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.42f, bounds.getY() + bounds.getHeight() * 0.18f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.70f, bounds.getY() + bounds.getHeight() * 0.18f);
+    folder.lineTo(bounds.getX() + bounds.getWidth() * 0.76f, bounds.getY() + bounds.getHeight() * 0.32f);
+    folder.lineTo(bounds.getRight(), bounds.getY() + bounds.getHeight() * 0.32f);
+    folder.lineTo(bounds.getRight(), bounds.getBottom());
+    folder.lineTo(bounds.getX(), bounds.getBottom());
+    folder.closeSubPath();
 
-    g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-    g.drawImage(image, bounds, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, false);
+    g.setColour(accent.withAlpha(0.18f));
+    g.fillPath(folder);
+    g.setColour(accent.withAlpha(0.90f));
+    g.strokePath(folder, juce::PathStrokeType(1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
-void drawPlainValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
-                    float fontSize = 12.0f, juce::Justification justification = juce::Justification::centred)
+void drawDiskIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour accent)
 {
-    g.setColour(juce::Colour(0xff051418).withAlpha(0.38f));
-    g.fillRoundedRectangle(bounds.toFloat().reduced(1.0f), 4.0f);
-    g.setColour(Theme::text.withAlpha(0.86f));
-    g.setFont(juce::Font(fontSize, juce::Font::plain));
-    g.drawFittedText(text, bounds.reduced(4, 0), justification, 1);
+    g.setColour(accent.withAlpha(0.16f));
+    g.fillRoundedRectangle(bounds, 2.0f);
+    g.setColour(accent.withAlpha(0.88f));
+    g.drawRoundedRectangle(bounds, 2.0f, 1.3f);
+    g.drawRect(bounds.withTrimmedLeft(bounds.getWidth() * 0.58f).withTrimmedBottom(bounds.getHeight() * 0.62f), 1.1f);
+    g.drawLine(bounds.getX() + bounds.getWidth() * 0.24f, bounds.getBottom() - bounds.getHeight() * 0.25f,
+               bounds.getRight() - bounds.getWidth() * 0.20f, bounds.getBottom() - bounds.getHeight() * 0.25f, 1.1f);
+    g.drawLine(bounds.getX() + bounds.getWidth() * 0.24f, bounds.getBottom() - bounds.getHeight() * 0.36f,
+               bounds.getRight() - bounds.getWidth() * 0.20f, bounds.getBottom() - bounds.getHeight() * 0.36f, 1.1f);
+}
+
+void drawDiceIcon(juce::Graphics& g, juce::Rectangle<float> bounds)
+{
+    const auto cyan = Theme::cyan.withAlpha(0.90f);
+    const auto purple = Theme::purple.withAlpha(0.88f);
+    juce::Path front;
+    juce::Path top;
+    juce::Path side;
+
+    const auto x = bounds.getX();
+    const auto y = bounds.getY();
+    const auto w = bounds.getWidth();
+    const auto h = bounds.getHeight();
+
+    front.startNewSubPath(x + w * 0.28f, y + h * 0.32f);
+    front.lineTo(x + w * 0.62f, y + h * 0.44f);
+    front.lineTo(x + w * 0.62f, y + h * 0.82f);
+    front.lineTo(x + w * 0.28f, y + h * 0.66f);
+    front.closeSubPath();
+
+    top.startNewSubPath(x + w * 0.28f, y + h * 0.32f);
+    top.lineTo(x + w * 0.52f, y + h * 0.14f);
+    top.lineTo(x + w * 0.84f, y + h * 0.28f);
+    top.lineTo(x + w * 0.62f, y + h * 0.44f);
+    top.closeSubPath();
+
+    side.startNewSubPath(x + w * 0.62f, y + h * 0.44f);
+    side.lineTo(x + w * 0.84f, y + h * 0.28f);
+    side.lineTo(x + w * 0.84f, y + h * 0.64f);
+    side.lineTo(x + w * 0.62f, y + h * 0.82f);
+    side.closeSubPath();
+
+    g.setColour(Theme::cyan.withAlpha(0.09f));
+    g.fillPath(front);
+    g.fillPath(top);
+    g.fillPath(side);
+    g.setColour(cyan);
+    g.strokePath(front, juce::PathStrokeType(1.0f));
+    g.strokePath(top, juce::PathStrokeType(1.0f));
+    g.setColour(purple);
+    g.strokePath(side, juce::PathStrokeType(1.0f));
+
+    auto dot = [&g] (float cx, float cy, float r, juce::Colour c)
+    {
+        g.setColour(c);
+        g.fillEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f);
+    };
+
+    dot(x + w * 0.42f, y + h * 0.52f, 1.7f, Theme::text.withAlpha(0.80f));
+    dot(x + w * 0.52f, y + h * 0.68f, 1.7f, Theme::text.withAlpha(0.80f));
+    dot(x + w * 0.55f, y + h * 0.26f, 1.6f, Theme::text.withAlpha(0.82f));
+    dot(x + w * 0.72f, y + h * 0.33f, 1.6f, Theme::text.withAlpha(0.82f));
+    dot(x + w * 0.75f, y + h * 0.49f, 1.5f, Theme::text.withAlpha(0.74f));
+    dot(x + w * 0.72f, y + h * 0.63f, 1.5f, Theme::text.withAlpha(0.74f));
+}
+
+void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text, bool save)
+{
+    const auto area = bounds.toFloat();
+    const auto accent = Theme::purple.interpolatedWith(Theme::cyan, save ? 0.14f : 0.34f);
+    const auto icon = area.withTrimmedLeft(area.getWidth() * 0.16f)
+                          .withTrimmedRight(area.getWidth() * 0.66f)
+                          .withTrimmedTop(area.getHeight() * 0.32f)
+                          .withTrimmedBottom(area.getHeight() * 0.30f);
+
+    if (save)
+        drawDiskIcon(g, icon, accent);
+    else
+        drawFolderIcon(g, icon, accent);
+
+    g.setColour(Theme::text.withAlpha(0.82f));
+    g.setFont(juce::Font(scaledFont(15.0f), juce::Font::plain));
+    g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(48)).reduced(scaledX(4), 0),
+                     juce::Justification::centredLeft, 1);
 }
 
 void drawTextValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
@@ -262,32 +348,12 @@ public:
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         if (button.getButtonText().equalsIgnoreCase("Load"))
         {
-            const auto active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
-            const auto accent = active ? Theme::cyan : Theme::stroke;
-            const auto radius = 5.5f;
-
-            g.setColour(juce::Colours::black.withAlpha(0.30f));
-            g.fillRoundedRectangle(bounds.translated(0.0f, 1.2f), radius);
-
-            if (active)
+            const auto image = getLayerLoadButtonImage(shouldDrawButtonAsDown);
+            if (image.isValid())
             {
-                g.setColour(Theme::cyan.withAlpha(0.16f));
-                g.fillRoundedRectangle(bounds.expanded(2.0f, 1.4f), radius + 2.0f);
-                g.setColour(Theme::purple.withAlpha(0.10f));
-                g.fillRoundedRectangle(bounds.expanded(4.0f, 2.2f), radius + 3.0f);
+                g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
+                g.drawImage(image, bounds.expanded(4.0f, 2.0f), juce::RectanglePlacement::stretchToFit, false);
             }
-
-            juce::ColourGradient fill(juce::Colour(0xff12323a), bounds.getX(), bounds.getY(),
-                                      juce::Colour(0xff02090b), bounds.getRight(), bounds.getBottom(), false);
-            fill.addColour(0.48, juce::Colour(0xff071c21));
-            g.setGradientFill(fill);
-            g.fillRoundedRectangle(bounds, radius);
-
-            g.setColour(juce::Colours::white.withAlpha(active ? 0.12f : 0.07f));
-            g.fillRoundedRectangle(bounds.reduced(2.0f).withTrimmedBottom(bounds.getHeight() * 0.58f), radius - 1.0f);
-
-            g.setColour(accent.withAlpha(active ? 0.95f : 0.48f));
-            g.drawRoundedRectangle(bounds, radius, active ? 1.25f : 0.85f);
             return;
         }
 
@@ -305,6 +371,9 @@ public:
     void drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) override
     {
         const auto isLoad = button.getButtonText().equalsIgnoreCase("Load");
+        if (isLoad && getLayerLoadButtonImage(false).isValid())
+            return;
+
         g.setColour(Theme::text.withAlpha(button.isEnabled() ? (isLoad ? 0.90f : 0.84f) : 0.35f));
         g.setFont(juce::Font(isLoad ? 10.0f : 9.5f));
         g.drawFittedText(button.getButtonText(), button.getLocalBounds().reduced(5, 2),
@@ -631,25 +700,33 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    drawAssetButton(g, getLoadSceneButtonImage(), scaledBoundsF(932.0f, 27.0f, 137.0f, 57.0f));
-    drawAssetButton(g, getSaveSceneButtonImage(), scaledBoundsF(1087.0f, 27.0f, 136.0f, 57.0f));
+    drawTopButtonContent(g, scaledBounds(976.0f, 28.0f, 141.0f, 60.0f), "LOAD SCENE", false);
+    drawTopButtonContent(g, scaledBounds(1135.0f, 28.0f, 141.0f, 60.0f), "SAVE SCENE", true);
 
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
                                : processor.getCurrentSceneName();
 
-    g.setColour(Theme::text.withAlpha(0.92f));
-    g.setFont(juce::Font(scaledFont(16.0f), juce::Font::plain));
+    g.setColour(Theme::text.withAlpha(0.86f));
+    g.setFont(juce::Font(scaledFont(15.8f), juce::Font::plain));
     g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
 
-    drawTextValue(g, scaledBounds(162, 157, 86, 38), sliderValueText(masterSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(545, 157, 108, 38), sliderValueText(globalXFadeSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(944, 157, 91, 38), sliderValueText(masterLowCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(1330, 157, 94, 38), sliderValueText(masterHighCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(370, 872, 82, 38), sliderValueText(randomStartSlider), scaledFont(13.0f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(151, 167, 157, 43), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(563, 167, 157, 43), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(973, 167, 157, 43), sliderValueText(masterLowCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(1378, 167, 157, 43), sliderValueText(masterHighCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+
+    const auto randomSlot = scaledBounds(29, 879, 225, 43);
+    drawDiceIcon(g, randomSlot.toFloat().withTrimmedLeft(scaledX(16)).withTrimmedRight(scaledX(166)).reduced(0.0f, scaledY(5.0f)));
+    g.setColour(Theme::text.withAlpha(0.78f));
+    g.setFont(juce::Font(scaledFont(13.8f), juce::Font::plain));
+    g.drawFittedText("RANDOMIZATION", randomSlot.withTrimmedLeft(scaledX(55)).withTrimmedRight(scaledX(28)),
+                     juce::Justification::centredLeft, 1);
+
+    drawTextValue(g, scaledBounds(337, 879, 127, 43), sliderValueText(randomStartSlider), scaledFont(13.8f), juce::Justification::centred);
 
     const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
-    auto ledArea = scaledBoundsF(610.0f, 887.0f, 280.0f, 22.0f);
+    auto ledArea = scaledBoundsF(596.0f, 883.0f, 326.0f, 24.0f);
 
     constexpr int bars = 45;
     for (int i = 0; i < bars; ++i)
@@ -660,11 +737,11 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
         const auto segmentWidth = ledArea.getWidth() / (float) bars;
         const auto x = ledArea.getX() + (float) i * segmentWidth;
         const auto h = juce::jmap(t, 10.0f, ledArea.getHeight());
-        g.setColour(active ? colour.withAlpha(0.92f) : juce::Colour(0xff0b2a30).withAlpha(0.36f));
+        g.setColour(active ? colour.withAlpha(0.90f) : juce::Colour(0xff0b2a30).withAlpha(0.10f));
         g.fillRoundedRectangle(x, ledArea.getBottom() - h, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.8f);
     }
 
-    drawTextValue(g, scaledBounds(570, 887, 58, 26), levelToDbText(masterLevel), scaledFont(12.0f), juce::Justification::centredRight);
+    drawTextValue(g, scaledBounds(536, 883, 58, 26), levelToDbText(masterLevel), scaledFont(12.5f), juce::Justification::centredRight);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -673,9 +750,9 @@ void SceneLooperAudioProcessorEditor::resized()
     bylineLabel.setBounds(scaledBounds(132, 51, 185, 17));
     taglineLabel.setBounds(scaledBounds(132, 76, 260, 18));
     sceneCaptionLabel.setBounds(scaledBounds(733, 13, 54, 18));
-    sceneNameLabel.setBounds(scaledBounds(498, 27, 418, 57));
-    loadSceneButton.setBounds(scaledBounds(932, 27, 137, 57));
-    saveSceneButton.setBounds(scaledBounds(1087, 27, 136, 57));
+    sceneNameLabel.setBounds(scaledBounds(520, 28, 436, 60));
+    loadSceneButton.setBounds(scaledBounds(976, 28, 141, 60));
+    saveSceneButton.setBounds(scaledBounds(1135, 28, 141, 60));
 
     masterLabel.setBounds(scaledBounds(162, 136, 150, 20));
     globalXFadeLabel.setBounds(scaledBounds(545, 136, 174, 20));
@@ -687,17 +764,17 @@ void SceneLooperAudioProcessorEditor::resized()
     masterLowCutSlider.setBounds(scaledBounds(848, 120, 84, 84));
     masterHighCutSlider.setBounds(scaledBounds(1230, 120, 84, 84));
 
-    randomizationLabel.setBounds(scaledBounds(96, 869, 150, 18));
-    randomizeButton.setBounds(scaledBounds(28, 846, 228, 58));
-    randomStartLabel.setBounds(scaledBounds(370, 849, 130, 18));
-    randomStartSlider.setBounds(scaledBounds(288, 846, 68, 68));
-    masterMeterLabel.setBounds(scaledBounds(600, 849, 160, 18));
+    randomizationLabel.setBounds(scaledBounds(78, 859, 150, 18));
+    randomizeButton.setBounds(scaledBounds(29, 879, 225, 43));
+    randomStartLabel.setBounds(scaledBounds(349, 859, 130, 18));
+    randomStartSlider.setBounds(scaledBounds(287, 849, 68, 68));
+    masterMeterLabel.setBounds(scaledBounds(596, 859, 160, 18));
 
     for (int i = 0; i < (int) rows.size(); ++i)
     {
         if (rows[(size_t) i] != nullptr)
         {
-            rows[(size_t) i]->setBounds(scaledBounds(16, 262 + i * 69, 1568, 68));
+            rows[(size_t) i]->setBounds(scaledBounds(16, 280 + i * 70, 1639, 70));
         }
     }
 }
@@ -995,14 +1072,14 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
 {
     auto drawControlValue = [&g] (juce::Slider& slider, int width = 56)
     {
-        auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(15));
-        value.setY(slider.getBottom() + scaledY(1));
-        g.setColour(Theme::text.withAlpha(0.78f));
-        g.setFont(juce::Font(scaledFont(9.2f), juce::Font::plain));
+        auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(17));
+        value.setY(slider.getBottom() + scaledY(2));
+        g.setColour(Theme::mutedText.withAlpha(0.88f));
+        g.setFont(juce::Font(scaledFont(10.4f), juce::Font::plain));
         g.drawFittedText(sliderValueText(slider), value, juce::Justification::centred, 1);
     };
 
-    drawPlainValue(g, scaledBounds(548, 22, 106, 29), sliderValueText(volumeSlider), scaledFont(10.5f), juce::Justification::centredRight);
+    drawTextValue(g, scaledBounds(548, 22, 126, 29), sliderValueText(volumeSlider), scaledFont(11.0f), juce::Justification::centredRight);
     drawControlValue(panSlider, 46);
     drawControlValue(autoPanAmountSlider, 46);
     drawControlValue(autoPanRateSlider, 52);
@@ -1014,16 +1091,22 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     drawControlValue(lpSlider, 52);
     drawControlValue(xfadeSlider, 54);
 
-    g.setColour(Theme::text.withAlpha(0.80f));
-    g.setFont(juce::Font(scaledFont(10.0f), juce::Font::plain));
-    g.drawFittedText(lengthLabel.getText(), scaledBounds(1438, 17, 104, 18),
+    g.setColour(Theme::mutedText.withAlpha(0.88f));
+    g.setFont(juce::Font(scaledFont(10.4f), juce::Font::plain));
+    g.drawFittedText(lengthLabel.getText(), scaledBounds(1502, 17, 116, 18),
                      juce::Justification::centredRight, 1);
-    g.drawFittedText(remainLabel.getText(), scaledBounds(1438, 34, 104, 18),
+    g.drawFittedText(remainLabel.getText(), scaledBounds(1502, 34, 116, 18),
                      juce::Justification::centredRight, 1);
 
-    auto led = scaledBoundsF(1438.0f, 54.0f, 104.0f, 9.0f);
+    auto led = scaledBoundsF(1504.0f, 54.0f, 112.0f, 9.0f);
     const int segments = 28;
-    const auto level = juce::jlimit(0.0f, 1.0f, processor.getLayerLevel(layerIndex));
+    const auto rawLevel = juce::jlimit(0.0f, 1.0f, processor.getLayerLevel(layerIndex));
+    const auto levelDb = rawLevel > 0.000001f ? juce::Decibels::gainToDecibels(rawLevel) : -80.0f;
+    const auto level = rawLevel <= 0.000001f
+                           ? 0.0f
+                           : (levelDb < -40.0f
+                                  ? juce::jmap(juce::jlimit(-60.0f, -40.0f, levelDb), -60.0f, -40.0f, 0.16f, 0.92f)
+                                  : juce::jmap(juce::jlimit(-40.0f, -6.0f, levelDb), -40.0f, -6.0f, 0.38f, 1.0f));
     for (int i = 0; i < segments; ++i)
     {
         const float t = (float) i / (float) (segments - 1);
@@ -1031,22 +1114,22 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
         const auto segmentWidth = led.getWidth() / (float) segments;
         const auto x = led.getX() + (float) i * segmentWidth;
-        g.setColour(active ? colour.withAlpha(0.82f) : juce::Colour(0xff0b2a30).withAlpha(0.34f));
+        g.setColour(active ? colour.withAlpha(0.86f) : juce::Colour(0xff0b2a30).withAlpha(0.16f));
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.8f, segmentWidth - 1.6f), led.getHeight(), 0.55f);
     }
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
-    numberLabel.setBounds(scaledBounds(0, 0, 60, 68));
+    numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(92, 8, 258, 18));
-    waveformPreview.setBounds(scaledBounds(86, 24, 326, 34));
-    loadButton.setBounds(scaledBounds(354, 9, 66, 24));
+    fileLabel.setBounds(scaledBounds(112, 10, 258, 18));
+    waveformPreview.setBounds(scaledBounds(92, 25, 360, 36));
+    loadButton.setBounds(scaledBounds(364, 11, 76, 28));
 
-    onButton.setBounds(scaledBounds(426, 18, 34, 34));
-    soloButton.setBounds(scaledBounds(462, 18, 34, 34));
-    autoPanButton.setBounds(scaledBounds(498, 18, 34, 34));
+    onButton.setBounds(scaledBounds(428, 18, 34, 34));
+    soloButton.setBounds(scaledBounds(464, 18, 34, 34));
+    autoPanButton.setBounds(scaledBounds(500, 18, 34, 34));
 
     volumeSlider.setBounds(scaledBounds(548, 23, 106, 26));
 
@@ -1056,19 +1139,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
                          scaledX(size), scaledY(size));
     };
 
-    placeKnob(panSlider, 667, 34);
-    placeKnob(autoPanAmountSlider, 747, 34);
-    placeKnob(autoPanRateSlider, 824, 34);
-    placeKnob(speedSlider, 903, 34);
-    placeKnob(driftSlider, 980, 34);
-    placeKnob(widthSlider, 1055, 34);
-    placeKnob(offsetSlider, 1135, 34);
-    placeKnob(hpSlider, 1214, 34);
-    placeKnob(lpSlider, 1291, 34);
-    placeKnob(xfadeSlider, 1370, 34);
+    placeKnob(panSlider, 700, 34);
+    placeKnob(autoPanAmountSlider, 782, 34);
+    placeKnob(autoPanRateSlider, 862, 34);
+    placeKnob(speedSlider, 949, 34);
+    placeKnob(driftSlider, 1025, 34);
+    placeKnob(widthSlider, 1105, 34);
+    placeKnob(offsetSlider, 1190, 34);
+    placeKnob(hpSlider, 1270, 34);
+    placeKnob(lpSlider, 1350, 34);
+    placeKnob(xfadeSlider, 1430, 34);
 
-    lengthLabel.setBounds(scaledBounds(1438, 17, 104, 18));
-    remainLabel.setBounds(scaledBounds(1438, 34, 104, 18));
+    lengthLabel.setBounds(scaledBounds(1502, 17, 116, 18));
+    remainLabel.setBounds(scaledBounds(1502, 34, 116, 18));
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::refreshFileName()

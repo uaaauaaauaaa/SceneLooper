@@ -362,30 +362,54 @@ public:
             return;
         }
 
-        const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height).reduced(6.0f, 11.0f);
+        const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height).reduced(5.0f, 8.0f);
         const auto cy = bounds.getCentreY();
         const auto accent = slider.findColour(juce::Slider::trackColourId);
-        const auto track = bounds.withHeight(4.0f).withCentre(juce::Point<float>(bounds.getCentreX(), cy));
-        g.setColour(juce::Colour(0xff02090b).withAlpha(0.92f));
-        g.fillRoundedRectangle(track.expanded(1.0f, 1.6f), 2.5f);
-        g.setColour(Theme::stroke.withAlpha(0.34f));
-        g.drawRoundedRectangle(track.expanded(1.0f, 1.6f), 2.5f, 0.7f);
+        const auto track = bounds.withHeight(6.0f).withCentre(juce::Point<float>(bounds.getCentreX(), cy));
+        const auto shell = track.expanded(2.0f, 2.2f);
 
-        juce::ColourGradient fill(accent.withAlpha(0.92f), bounds.getX(), cy,
-                                  Theme::cyan.withAlpha(0.92f), sliderPos, cy, false);
+        g.setColour(juce::Colours::black.withAlpha(0.34f));
+        g.fillRoundedRectangle(shell.translated(0.0f, 1.2f), 4.5f);
+
+        juce::ColourGradient trough(juce::Colour(0xff061316), track.getX(), track.getY(),
+                                    juce::Colour(0xff010607), track.getX(), track.getBottom(), false);
+        trough.addColour(0.38, juce::Colour(0xff102b31).withAlpha(0.80f));
+        g.setGradientFill(trough);
+        g.fillRoundedRectangle(shell, 4.5f);
+
+        g.setColour(juce::Colours::white.withAlpha(0.10f));
+        g.fillRoundedRectangle(shell.withTrimmedBottom(shell.getHeight() * 0.55f).reduced(1.6f, 1.2f), 3.0f);
+        g.setColour(Theme::stroke.withAlpha(0.28f));
+        g.drawRoundedRectangle(shell, 4.5f, 0.7f);
+
+        const auto fillWidth = juce::jmax(0.0f, sliderPos - bounds.getX());
+        juce::ColourGradient fill(accent.withAlpha(0.96f), bounds.getX(), cy,
+                                  Theme::cyan.withAlpha(0.96f), sliderPos, cy, false);
+        fill.addColour(0.45, Theme::blue.withAlpha(0.92f));
         g.setGradientFill(fill);
-        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 2.0f,
-                                                      juce::jmax(0.0f, sliderPos - bounds.getX()), 4.0f), 2.0f);
-        g.setColour(accent.withAlpha(0.20f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 4.0f,
-                                                      juce::jmax(0.0f, sliderPos - bounds.getX()), 8.0f), 4.0f);
+        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 2.4f, fillWidth, 4.8f), 2.4f);
 
-        juce::ColourGradient thumb(Theme::text.withAlpha(0.94f), sliderPos - 3.0f, cy - 9.0f,
-                                   juce::Colour(0xff4c5d60), sliderPos + 3.0f, cy + 9.0f, false);
+        g.setColour(accent.withAlpha(0.12f));
+        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX(), cy - 4.6f, fillWidth, 9.2f), 4.6f);
+        g.setColour(juce::Colours::white.withAlpha(0.22f));
+        g.fillRoundedRectangle(juce::Rectangle<float>(bounds.getX() + 1.0f, cy - 2.5f, juce::jmax(0.0f, fillWidth - 2.0f), 1.2f), 0.6f);
+
+        const auto thumbArea = juce::Rectangle<float>(sliderPos - 4.0f, cy - 10.0f, 8.0f, 20.0f);
+        g.setColour(accent.withAlpha(0.16f));
+        g.fillRoundedRectangle(thumbArea.expanded(2.2f, 1.6f), 3.4f);
+
+        juce::ColourGradient thumb(juce::Colour(0xffeef4ef), thumbArea.getX(), thumbArea.getY(),
+                                   juce::Colour(0xff536265), thumbArea.getRight(), thumbArea.getBottom(), false);
+        thumb.addColour(0.32, juce::Colour(0xffc9d5d3));
+        thumb.addColour(0.62, juce::Colour(0xff6b7779));
         g.setGradientFill(thumb);
-        g.fillRoundedRectangle(sliderPos - 3.0f, cy - 9.0f, 6.0f, 18.0f, 2.0f);
+        g.fillRoundedRectangle(thumbArea, 2.4f);
+
         g.setColour(juce::Colours::white.withAlpha(0.30f));
-        g.drawLine(sliderPos - 1.0f, cy - 6.5f, sliderPos - 1.0f, cy + 6.5f, 0.7f);
+        g.drawLine(thumbArea.getX() + 2.2f, thumbArea.getY() + 3.0f,
+                   thumbArea.getX() + 2.2f, thumbArea.getBottom() - 3.0f, 0.7f);
+        g.setColour(juce::Colours::black.withAlpha(0.36f));
+        g.drawRoundedRectangle(thumbArea, 2.4f, 0.7f);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&, bool shouldDrawButtonAsHighlighted,

@@ -471,11 +471,9 @@ public:
         const auto on = button.getToggleState();
         if (button.getButtonText() == "On")
         {
-            auto circle = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            auto circle = bounds.withSizeKeepingCentre(22.0f, 22.0f);
             const auto accent = on ? Theme::purple : Theme::stroke;
 
-            g.setColour(accent.withAlpha(on ? 0.16f : 0.05f));
-            g.fillEllipse(circle.expanded(on ? 4.0f : 2.0f));
             g.setColour(juce::Colours::black.withAlpha(0.34f));
             g.fillEllipse(circle.translated(0.0f, 1.2f));
 
@@ -485,10 +483,16 @@ public:
             g.setGradientFill(fill);
             g.fillEllipse(circle);
 
+            if (on)
+            {
+                g.setColour(accent.withAlpha(0.12f));
+                g.fillEllipse(circle.reduced(1.4f));
+            }
+
             g.setColour(juce::Colours::white.withAlpha(0.10f));
             g.fillEllipse(circle.reduced(6.0f).withTrimmedBottom(circle.getHeight() * 0.62f).translated(-2.0f, -1.5f));
-            g.setColour(accent.withAlpha(on ? 0.86f : 0.48f));
-            g.drawEllipse(circle, on ? 1.35f : 0.9f);
+            g.setColour(accent.withAlpha(on ? 0.68f : 0.30f));
+            g.drawEllipse(circle.reduced(0.8f), on ? 1.1f : 0.8f);
 
             const auto centre = circle.getCentre();
             juce::Path powerArc;
@@ -502,13 +506,13 @@ public:
 
         if (button.getButtonText() == "S")
         {
-            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(24.0f, 24.0f);
+            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(22.0f, 22.0f);
             const auto accent = on ? Theme::purple : Theme::stroke;
 
             if (on)
             {
-                g.setColour(Theme::purple.withAlpha(0.13f));
-                g.fillRoundedRectangle(box.expanded(3.0f), 6.0f);
+                g.setColour(Theme::purple.withAlpha(0.10f));
+                g.fillRoundedRectangle(box.reduced(1.0f), 5.0f);
             }
 
             juce::ColourGradient fill(on ? juce::Colour(0xff17203d) : juce::Colour(0xff102b32),
@@ -526,11 +530,9 @@ public:
 
         if (button.getButtonText() == "AP")
         {
-            auto circle = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            auto circle = bounds.withSizeKeepingCentre(22.0f, 22.0f);
             const auto accent = on ? Theme::cyan : Theme::stroke;
 
-            g.setColour(accent.withAlpha(on ? 0.13f : 0.04f));
-            g.fillEllipse(circle.expanded(on ? 3.5f : 1.8f));
             g.setColour(juce::Colours::black.withAlpha(0.34f));
             g.fillEllipse(circle.translated(0.0f, 1.2f));
 
@@ -538,8 +540,15 @@ public:
                                       juce::Colour(0xff020609), circle.getRight(), circle.getBottom(), true);
             g.setGradientFill(fill);
             g.fillEllipse(circle);
-            g.setColour(accent.withAlpha(on ? 0.90f : 0.48f));
-            g.drawEllipse(circle, on ? 1.25f : 0.9f);
+
+            if (on)
+            {
+                g.setColour(accent.withAlpha(0.10f));
+                g.fillEllipse(circle.reduced(1.4f));
+            }
+
+            g.setColour(accent.withAlpha(on ? 0.70f : 0.30f));
+            g.drawEllipse(circle.reduced(0.8f), on ? 1.05f : 0.8f);
 
             juce::Path wave;
             const auto waveArea = circle.reduced(6.0f, 8.0f);

@@ -21,7 +21,7 @@ const juce::Colour mutedText { 0xffaeb6ad };
 constexpr int designWidth = 1600;
 constexpr int designHeight = 960;
 constexpr int editorWidth = 1208;
-constexpr int editorHeight = 725;
+constexpr int editorHeight = 680;
 constexpr float scaleX = (float) editorWidth / (float) designWidth;
 constexpr float scaleY = (float) editorHeight / (float) designHeight;
 
@@ -73,24 +73,6 @@ juce::Image getSaveSceneButtonImage()
                                            BinaryData::save_scene_button_pngSize);
 }
 
-juce::Image getRandomizationButtonImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::randomization_button_png,
-                                           BinaryData::randomization_button_pngSize);
-}
-
-juce::Image getSmallKnobFramesImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::small_knob_frames_png,
-                                           BinaryData::small_knob_frames_pngSize);
-}
-
-juce::Image getMasterKnobFramesImage()
-{
-    return juce::ImageCache::getFromMemory(BinaryData::master_knob_frames_png,
-                                           BinaryData::master_knob_frames_pngSize);
-}
-
 void makeHitZoneOnly(juce::Component& component)
 {
     component.setAlpha(0.01f);
@@ -130,51 +112,6 @@ void drawAssetButton(juce::Graphics& g, const juce::Image& image, juce::Rectangl
     g.drawImage(image, bounds, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, false);
 }
 
-int smallKnobRowForAccent(juce::Colour accent)
-{
-    const auto hue = accent.getHue();
-    const auto saturation = accent.getSaturation();
-    if (saturation < 0.25f)
-        return 5;
-    if (hue > 0.70f)
-        return 1;
-    if (hue > 0.64f)
-        return 0;
-    if (hue > 0.55f)
-        return 3;
-    if (hue > 0.49f)
-        return 2;
-    return 4;
-}
-
-int masterKnobRowForSlider(const juce::Slider& slider)
-{
-    const auto name = slider.getName();
-    if (name.containsIgnoreCase("Crossfade") || name.containsIgnoreCase("Random"))
-        return 1;
-    if (name.containsIgnoreCase("LowCut"))
-        return 2;
-    if (name.containsIgnoreCase("HighCut"))
-        return 3;
-    return 0;
-}
-
-bool drawKnobFrame(juce::Graphics& g, const juce::Image& frames, int columns, int rows, int row,
-                   float sliderPos, juce::Rectangle<int> target)
-{
-    if (! frames.isValid() || columns <= 0 || rows <= 0)
-        return false;
-
-    const int frameWidth = frames.getWidth() / columns;
-    const int frameHeight = frames.getHeight() / rows;
-    const int frame = juce::jlimit(0, columns - 1, (int) std::round(sliderPos * (float) (columns - 1)));
-    row = juce::jlimit(0, rows - 1, row);
-    g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-    g.drawImage(frames, target.getX(), target.getY(), target.getWidth(), target.getHeight(),
-                frame * frameWidth, row * frameHeight, frameWidth, frameHeight, false);
-    return true;
-}
-
 void drawPlainValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
                     float fontSize = 12.0f, juce::Justification justification = juce::Justification::centred)
 {
@@ -185,14 +122,9 @@ void drawPlainValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::
     g.drawFittedText(text, bounds.reduced(4, 0), justification, 1);
 }
 
-void drawFramedValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
-                     float fontSize = 14.0f, juce::Justification justification = juce::Justification::centredLeft)
+void drawTextValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
+                   float fontSize = 14.0f, juce::Justification justification = juce::Justification::centredLeft)
 {
-    const auto area = bounds.toFloat().reduced(0.5f);
-    g.setColour(juce::Colour(0xff020b0e).withAlpha(0.56f));
-    g.fillRoundedRectangle(area, 4.0f);
-    g.setColour(Theme::cyan.withAlpha(0.16f));
-    g.drawRoundedRectangle(area, 4.0f, 0.9f);
     g.setColour(Theme::text.withAlpha(0.90f));
     g.setFont(juce::Font(fontSize, juce::Font::plain));
     g.drawFittedText(text, bounds.reduced(6, 0), justification, 1);
@@ -254,14 +186,6 @@ public:
         const auto centre = r.getCentre();
         const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
         const auto glow = juce::jlimit(0.0f, 1.0f, sliderPos);
-        const bool useMasterSprite = width >= 48 || height >= 48;
-        const auto target = juce::Rectangle<int>(x, y, width, height).withSizeKeepingCentre(
-            juce::jmin(width, height), juce::jmin(width, height));
-
-        if (useMasterSprite
-                ? drawKnobFrame(g, getMasterKnobFramesImage(), 11, 4, masterKnobRowForSlider(slider), sliderPos, target)
-                : drawKnobFrame(g, getSmallKnobFramesImage(), 12, 6, smallKnobRowForAccent(accent), sliderPos, target))
-            return;
 
         const auto innerGlow = 1.6f + glow * 1.2f;
         const auto outerGlow = 2.4f + glow * 0.8f;
@@ -502,6 +426,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 {
     lookAndFeel = std::make_unique<AtmocycleLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
+    tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 850);
 
     setResizable(false, false);
     setResizeLimits(Theme::editorWidth, Theme::editorHeight, Theme::editorWidth, Theme::editorHeight);
@@ -548,6 +473,8 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     addAndMakeVisible(sceneNameLabel);
     addAndMakeVisible(saveSceneButton);
     addAndMakeVisible(loadSceneButton);
+    loadSceneButton.setTooltip("Load Scene: open a saved Atmocycle scene file.");
+    saveSceneButton.setTooltip("Save Scene: save the current layer setup as a scene file.");
 
     auto setupMacro = [] (juce::Slider& s, const juce::String& suffix)
     {
@@ -600,6 +527,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     {
         processor.randomizeLayerStarts();
     };
+    randomizeButton.setTooltip("Randomization: randomize layer start positions using the Random Start amount.");
 
     saveSceneButton.onClick = [this]
     {
@@ -659,19 +587,14 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
         addAndMakeVisible(*rows[(size_t) i]);
     }
 
-    for (auto* component : { static_cast<juce::Component*>(&titleLabel),
-                             static_cast<juce::Component*>(&bylineLabel),
-                             static_cast<juce::Component*>(&taglineLabel),
-                             static_cast<juce::Component*>(&sceneCaptionLabel),
-                             static_cast<juce::Component*>(&sceneNameLabel),
-                             static_cast<juce::Component*>(&masterLabel),
-                             static_cast<juce::Component*>(&globalXFadeLabel),
-                             static_cast<juce::Component*>(&masterLowCutLabel),
-                             static_cast<juce::Component*>(&masterHighCutLabel),
-                             static_cast<juce::Component*>(&randomizationLabel),
-                             static_cast<juce::Component*>(&randomStartLabel),
-                             static_cast<juce::Component*>(&masterMeterLabel),
-                             static_cast<juce::Component*>(&saveSceneButton),
+    for (auto* label : { &titleLabel, &bylineLabel, &taglineLabel, &sceneCaptionLabel, &sceneNameLabel,
+                         &masterLabel, &globalXFadeLabel, &masterLowCutLabel, &masterHighCutLabel,
+                         &randomizationLabel, &randomStartLabel, &masterMeterLabel })
+    {
+        label->setVisible(false);
+    }
+
+    for (auto* component : { static_cast<juce::Component*>(&saveSceneButton),
                              static_cast<juce::Component*>(&loadSceneButton),
                              static_cast<juce::Component*>(&randomizeButton) })
     {
@@ -710,7 +633,6 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
     drawAssetButton(g, getLoadSceneButtonImage(), scaledBoundsF(932.0f, 27.0f, 137.0f, 57.0f));
     drawAssetButton(g, getSaveSceneButtonImage(), scaledBoundsF(1087.0f, 27.0f, 136.0f, 57.0f));
-    drawAssetButton(g, getRandomizationButtonImage(), scaledBoundsF(26.0f, 836.0f, 270.0f, 74.0f));
 
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
@@ -720,19 +642,14 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     g.setFont(juce::Font(scaledFont(16.0f), juce::Font::plain));
     g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
 
-    drawFramedValue(g, scaledBounds(162, 157, 86, 38), sliderValueText(masterSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawFramedValue(g, scaledBounds(545, 157, 108, 38), sliderValueText(globalXFadeSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawFramedValue(g, scaledBounds(944, 157, 91, 38), sliderValueText(masterLowCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawFramedValue(g, scaledBounds(1330, 157, 94, 38), sliderValueText(masterHighCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
-    drawPlainValue(g, scaledBounds(370, 872, 82, 38), sliderValueText(randomStartSlider), scaledFont(13.0f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(162, 157, 86, 38), sliderValueText(masterSlider), scaledFont(14.5f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(545, 157, 108, 38), sliderValueText(globalXFadeSlider), scaledFont(14.5f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(944, 157, 91, 38), sliderValueText(masterLowCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(1330, 157, 94, 38), sliderValueText(masterHighCutSlider), scaledFont(14.5f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(370, 872, 82, 38), sliderValueText(randomStartSlider), scaledFont(13.0f), juce::Justification::centredLeft);
 
     const auto masterLevel = juce::jlimit(0.0f, 1.0f, processor.getMasterLevel());
-    auto meter = scaledBoundsF(528.0f, 859.0f, 420.0f, 75.0f);
-    g.setColour(juce::Colour(0xff021014).withAlpha(0.48f));
-    g.fillRoundedRectangle(meter.reduced(2.0f), 6.0f);
     auto ledArea = scaledBoundsF(610.0f, 887.0f, 280.0f, 22.0f);
-    g.setColour(juce::Colour(0xff021014).withAlpha(0.76f));
-    g.fillRoundedRectangle(ledArea.expanded(3.0f, 2.0f), 3.0f);
 
     constexpr int bars = 45;
     for (int i = 0; i < bars; ++i)
@@ -747,7 +664,7 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
         g.fillRoundedRectangle(x, ledArea.getBottom() - h, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.8f);
     }
 
-    drawPlainValue(g, scaledBounds(570, 887, 58, 26), levelToDbText(masterLevel), scaledFont(12.0f), juce::Justification::centredRight);
+    drawTextValue(g, scaledBounds(570, 887, 58, 26), levelToDbText(masterLevel), scaledFont(12.0f), juce::Justification::centredRight);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -896,6 +813,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     numberLabel.setVisible(false);
 
     loadButton.setButtonText("Load");
+    loadButton.setTooltip("Load WAV: choose an audio file for this layer.");
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
     fileLabel.setColour(juce::Label::textColourId, Theme::text.withAlpha(0.82f));
     fileLabel.setJustificationType(juce::Justification::centredLeft);
@@ -905,10 +823,13 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
+    onButton.setTooltip("Layer On/Off: enable or mute this layer.");
     soloButton.setButtonText("S");
     addAndMakeVisible(soloButton);
+    soloButton.setTooltip("Solo: listen to this layer by itself.");
     autoPanButton.setButtonText("AP");
     addAndMakeVisible(autoPanButton);
+    autoPanButton.setTooltip("Auto Pan: turn automatic left-right panning on or off for this layer.");
 
     auto setupTimeLabel = [] (juce::Label& label)
     {

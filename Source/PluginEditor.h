@@ -122,6 +122,7 @@ private:
     juce::Slider masterHighCutSlider;
     juce::Slider randomStartSlider;
     std::unique_ptr<juce::LookAndFeel_V4> lookAndFeel;
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     std::unique_ptr<juce::FileChooser> sceneFileChooser;
     std::unique_ptr<SliderAttachment> masterAttachment;
     std::unique_ptr<SliderAttachment> globalXFadeAttachment;

@@ -520,89 +520,79 @@ public:
     {
         auto bounds = button.getLocalBounds().toFloat().reduced(2.0f);
         const auto on = button.getToggleState();
-        if (button.getButtonText() == "On")
+        auto drawButtonShell = [&] (juce::Rectangle<float> box)
         {
-            auto circle = bounds.withSizeKeepingCentre(22.0f, 22.0f);
-            const auto accent = on ? Theme::purple : Theme::stroke;
-
-            g.setColour(juce::Colours::black.withAlpha(0.34f));
-            g.fillEllipse(circle.translated(0.0f, 1.2f));
-
-            juce::ColourGradient fill(juce::Colour(0xff143039), circle.getX(), circle.getY(),
-                                      juce::Colour(0xff020507), circle.getRight(), circle.getBottom(), true);
-            fill.addColour(0.55, juce::Colour(0xff071219));
+            juce::ColourGradient fill(juce::Colour(0xff12282e).withAlpha(highlighted || down ? 0.78f : 0.56f),
+                                      box.getX(), box.getY(),
+                                      juce::Colour(0xff020608).withAlpha(0.92f),
+                                      box.getRight(), box.getBottom(), false);
             g.setGradientFill(fill);
-            g.fillEllipse(circle);
+            g.fillRoundedRectangle(box, 5.5f);
+            g.setColour(juce::Colours::white.withAlpha(0.035f));
+            g.fillRoundedRectangle(box.reduced(1.2f).withTrimmedBottom(box.getHeight() * 0.62f), 4.5f);
+            g.setColour(Theme::stroke.withAlpha(on ? 0.28f : 0.20f));
+            g.drawRoundedRectangle(box, 5.5f, 0.75f);
+        };
 
+        auto drawGlowingPath = [&] (const juce::Path& path, float thickness)
+        {
+            const auto offColour = Theme::mutedText.withAlpha(0.54f);
             if (on)
             {
-                g.setColour(accent.withAlpha(0.12f));
-                g.fillEllipse(circle.reduced(1.4f));
+                g.setColour(Theme::purple.withAlpha(0.18f));
+                g.strokePath(path, juce::PathStrokeType(thickness + 2.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                g.setColour(Theme::purple.withAlpha(0.92f));
+                g.strokePath(path, juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             }
+            else
+            {
+                g.setColour(offColour);
+                g.strokePath(path, juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+        };
 
-            g.setColour(juce::Colours::white.withAlpha(0.10f));
-            g.fillEllipse(circle.reduced(6.0f).withTrimmedBottom(circle.getHeight() * 0.62f).translated(-2.0f, -1.5f));
-            g.setColour(accent.withAlpha(on ? 0.68f : 0.30f));
-            g.drawEllipse(circle.reduced(0.8f), on ? 1.1f : 0.8f);
+        if (button.getButtonText() == "On")
+        {
+            auto box = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            drawButtonShell(box);
 
-            const auto centre = circle.getCentre();
+            const auto centre = box.getCentre();
             juce::Path powerArc;
-            powerArc.addCentredArc(centre.x, centre.y + 1.0f, 7.2f, 7.2f, 0.0f,
+            powerArc.addCentredArc(centre.x, centre.y + 1.0f, 7.0f, 7.0f, 0.0f,
                                    -2.35f, 2.35f, true);
-            g.setColour((on ? Theme::text : Theme::mutedText).withAlpha(on ? 0.94f : 0.62f));
-            g.strokePath(powerArc, juce::PathStrokeType(2.25f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            g.drawLine(centre.x, centre.y - 9.0f, centre.x, centre.y - 1.5f, 2.25f);
+            drawGlowingPath(powerArc, 2.1f);
+
+            juce::Path powerLine;
+            powerLine.startNewSubPath(centre.x, centre.y - 8.4f);
+            powerLine.lineTo(centre.x, centre.y - 1.8f);
+            drawGlowingPath(powerLine, 2.1f);
             return;
         }
 
         if (button.getButtonText() == "S")
         {
-            auto box = bounds.reduced(1.0f).withSizeKeepingCentre(22.0f, 22.0f);
-            const auto accent = on ? Theme::purple : Theme::stroke;
-
+            auto box = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            drawButtonShell(box);
             if (on)
             {
-                g.setColour(Theme::purple.withAlpha(0.10f));
-                g.fillRoundedRectangle(box.reduced(1.0f), 5.0f);
+                g.setColour(Theme::purple.withAlpha(0.22f));
+                g.setFont(juce::Font("Avenir Next", 15.5f, juce::Font::plain));
+                g.drawFittedText("S", box.toNearestInt().reduced(3), juce::Justification::centred, 1);
             }
 
-            juce::ColourGradient fill(on ? juce::Colour(0xff17203d) : juce::Colour(0xff102b32),
-                                      box.getX(), box.getY(),
-                                      juce::Colour(0xff02070a), box.getRight(), box.getBottom(), false);
-            g.setGradientFill(fill);
-            g.fillRoundedRectangle(box, 5.5f);
-            g.setColour(accent.withAlpha(on ? 0.70f : 0.46f));
-            g.drawRoundedRectangle(box, 5.5f, 1.0f);
-            g.setColour((on ? Theme::text : Theme::mutedText).withAlpha(on ? 0.95f : 0.70f));
-            g.setFont(juce::Font(15.0f, juce::Font::plain));
+            g.setColour((on ? Theme::purple : Theme::mutedText).withAlpha(on ? 0.94f : 0.54f));
+            g.setFont(juce::Font("Avenir Next", 15.5f, juce::Font::plain));
             g.drawFittedText("S", box.toNearestInt().reduced(3), juce::Justification::centred, 1);
             return;
         }
 
         if (button.getButtonText() == "AP")
         {
-            auto circle = bounds.withSizeKeepingCentre(22.0f, 22.0f);
-            const auto accent = on ? Theme::cyan : Theme::stroke;
-
-            g.setColour(juce::Colours::black.withAlpha(0.34f));
-            g.fillEllipse(circle.translated(0.0f, 1.2f));
-
-            juce::ColourGradient fill(juce::Colour(0xff123039), circle.getX(), circle.getY(),
-                                      juce::Colour(0xff020609), circle.getRight(), circle.getBottom(), true);
-            g.setGradientFill(fill);
-            g.fillEllipse(circle);
-
-            if (on)
-            {
-                g.setColour(accent.withAlpha(0.10f));
-                g.fillEllipse(circle.reduced(1.4f));
-            }
-
-            g.setColour(accent.withAlpha(on ? 0.70f : 0.30f));
-            g.drawEllipse(circle.reduced(0.8f), on ? 1.05f : 0.8f);
+            auto box = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            drawButtonShell(box);
 
             juce::Path wave;
-            const auto waveArea = circle.reduced(6.0f, 8.0f);
+            const auto waveArea = box.reduced(5.3f, 8.0f);
             for (int i = 0; i < 24; ++i)
             {
                 const float t = (float) i / 23.0f;
@@ -613,8 +603,7 @@ public:
                 else
                     wave.lineTo(xx, yy);
             }
-            g.setColour((on ? Theme::cyan : Theme::mutedText).withAlpha(on ? 0.94f : 0.62f));
-            g.strokePath(wave, juce::PathStrokeType(1.9f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            drawGlowingPath(wave, 1.9f);
             return;
         }
 
@@ -852,7 +841,7 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     drawTrackedText(g, scaledBoundsF(132.0f, 75.0f, 305.0f, 18.0f), "MULTI-LAYER AMBIENCE PLAYER", scaledFont(10.6f),
                     juce::Justification::centredLeft, scaledX(2.0f), Theme::purple.withAlpha(0.88f), true);
 
-    drawUiLabel(g, scaledBoundsF(728.0f, 13.0f, 70.0f, 17.0f), "SCENE", scaledFont(10.0f));
+    drawUiLabel(g, scaledBoundsF(728.0f, 13.0f, 70.0f, 17.0f), "SCENE", scaledFont(11.4f));
     drawTopButtonContent(g, scaledBounds(986.0f, 31.0f, 128.0f, 53.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
     drawTopButtonContent(g, scaledBounds(1147.0f, 31.0f, 128.0f, 53.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
 
@@ -864,45 +853,44 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     g.setFont(juce::Font("Avenir Next", scaledFont(15.0f), juce::Font::plain));
     g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
 
-    drawUiLabel(g, scaledBoundsF(160.0f, 139.0f, 170.0f, 20.0f), "MASTER OUTPUT", scaledFont(12.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(568.0f, 139.0f, 185.0f, 20.0f), "GLOBAL CROSSFADE", scaledFont(12.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(972.0f, 139.0f, 175.0f, 20.0f), "MASTER LOW CUT", scaledFont(12.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(1390.0f, 139.0f, 185.0f, 20.0f), "MASTER HIGH CUT", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(160.0f, 139.0f, 190.0f, 21.0f), "MASTER OUTPUT", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(568.0f, 139.0f, 205.0f, 21.0f), "GLOBAL CROSSFADE", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(972.0f, 139.0f, 198.0f, 21.0f), "MASTER LOW CUT", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(1390.0f, 139.0f, 210.0f, 21.0f), "MASTER HIGH CUT", scaledFont(14.0f), juce::Justification::centredLeft);
 
-    drawUiLabel(g, scaledBoundsF(31.0f, 246.0f, 65.0f, 20.0f), "LAYER", scaledFont(10.5f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(128.0f, 246.0f, 170.0f, 20.0f), "FILE / LOOP", scaledFont(10.5f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(395.0f, 246.0f, 100.0f, 20.0f), "CONTROL", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(580.0f, 246.0f, 80.0f, 20.0f), "VOLUME", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(716.0f, 246.0f, 60.0f, 20.0f), "PAN", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(815.0f, 238.0f, 90.0f, 15.0f), "AUTO PAN", scaledFont(10.0f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(815.0f, 253.0f, 90.0f, 15.0f), "AMOUNT", scaledFont(10.0f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(918.0f, 238.0f, 85.0f, 15.0f), "AUTO PAN", scaledFont(10.0f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(918.0f, 253.0f, 85.0f, 15.0f), "RATE", scaledFont(10.0f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1018.0f, 246.0f, 70.0f, 20.0f), "SPEED", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1112.0f, 246.0f, 65.0f, 20.0f), "DRIFT", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1205.0f, 246.0f, 70.0f, 20.0f), "WIDTH", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1297.0f, 246.0f, 110.0f, 20.0f), "START OFFSET", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1430.0f, 246.0f, 45.0f, 20.0f), "HP", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1510.0f, 246.0f, 45.0f, 20.0f), "LP", scaledFont(10.5f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1581.0f, 246.0f, 75.0f, 20.0f), "XFADE", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(31.0f, 245.0f, 70.0f, 22.0f), "LAYER", scaledFont(12.2f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(128.0f, 245.0f, 180.0f, 22.0f), "FILE / LOOP", scaledFont(12.2f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(395.0f, 245.0f, 100.0f, 22.0f), "CONTROL", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(580.0f, 245.0f, 85.0f, 22.0f), "VOLUME", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(716.0f, 245.0f, 60.0f, 22.0f), "PAN", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(815.0f, 237.0f, 90.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(815.0f, 253.0f, 90.0f, 16.0f), "AMOUNT", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(918.0f, 237.0f, 85.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(918.0f, 253.0f, 85.0f, 16.0f), "RATE", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1018.0f, 245.0f, 70.0f, 22.0f), "SPEED", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1112.0f, 245.0f, 65.0f, 22.0f), "DRIFT", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1205.0f, 245.0f, 70.0f, 22.0f), "WIDTH", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1297.0f, 245.0f, 115.0f, 22.0f), "START OFFSET", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1430.0f, 245.0f, 45.0f, 22.0f), "HP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1510.0f, 245.0f, 45.0f, 22.0f), "LP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1581.0f, 245.0f, 75.0f, 22.0f), "XFADE", scaledFont(12.2f), juce::Justification::centred);
 
     drawTextValue(g, scaledBounds(151, 167, 157, 43), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawTextValue(g, scaledBounds(563, 167, 157, 43), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawTextValue(g, scaledBounds(973, 167, 157, 43), sliderValueText(masterLowCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawTextValue(g, scaledBounds(1378, 167, 157, 43), sliderValueText(masterHighCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
 
-    const auto randomSlot = scaledBounds(29, 879, 225, 43);
-    drawDiceIcon(g, randomSlot.toFloat().withTrimmedLeft(scaledX(25)).withTrimmedRight(scaledX(160)).reduced(0.0f, scaledY(5.0f)));
+    drawDiceIcon(g, scaledBoundsF(49.0f, 883.0f, 35.0f, 32.0f));
 
-    drawUiLabel(g, scaledBoundsF(77.0f, 855.0f, 170.0f, 20.0f), "RANDOMIZATION", scaledFont(10.4f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(350.0f, 855.0f, 135.0f, 20.0f), "RANDOM START", scaledFont(10.4f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(596.0f, 855.0f, 150.0f, 20.0f), "MASTER METER", scaledFont(10.4f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(92.0f, 883.0f, 170.0f, 28.0f), "RANDOMIZATION", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(350.0f, 855.0f, 145.0f, 20.0f), "RANDOM START", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(596.0f, 855.0f, 165.0f, 20.0f), "MASTER METER", scaledFont(12.0f), juce::Justification::centredLeft);
 
     drawTextValue(g, scaledBounds(337, 879, 127, 43), sliderValueText(randomStartSlider), scaledFont(13.8f), juce::Justification::centred);
 
     const auto masterLeft = juce::jlimit(0.0f, 1.0f, processor.getMasterLeftLevel());
     const auto masterRight = juce::jlimit(0.0f, 1.0f, processor.getMasterRightLevel());
-    auto ledArea = scaledBoundsF(596.0f, 883.0f, 326.0f, 25.0f);
+    auto ledArea = scaledBoundsF(596.0f, 878.0f, 326.0f, 25.0f);
 
     constexpr int bars = 45;
     auto drawMeterRow = [&g, &ledArea] (float level, float y, float h)
@@ -914,7 +902,7 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
             const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
             const auto segmentWidth = ledArea.getWidth() / (float) bars;
             const auto x = ledArea.getX() + (float) i * segmentWidth;
-            g.setColour(active ? colour.withAlpha(0.88f) : juce::Colour(0xff0b2a30).withAlpha(0.12f));
+            g.setColour(active ? colour.withAlpha(0.54f) : juce::Colour(0xff0b2a30).withAlpha(0.10f));
             g.fillRoundedRectangle(x, y, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.7f);
         }
     };
@@ -922,15 +910,15 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     drawMeterRow(masterLeft, ledArea.getY() + scaledY(1.0f), scaledY(7.0f));
     drawMeterRow(masterRight, ledArea.getY() + scaledY(12.0f), scaledY(7.0f));
 
-    drawTextValue(g, scaledBounds(536, 883, 58, 26), levelToDbText(juce::jmax(masterLeft, masterRight)), scaledFont(12.5f), juce::Justification::centredRight);
-    drawUiLabel(g, scaledBoundsF(593.0f, 909.0f, 34.0f, 15.0f), "-60", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(644.0f, 909.0f, 34.0f, 15.0f), "-48", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(695.0f, 909.0f, 34.0f, 15.0f), "-36", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(746.0f, 909.0f, 34.0f, 15.0f), "-24", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(797.0f, 909.0f, 34.0f, 15.0f), "-18", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(848.0f, 909.0f, 34.0f, 15.0f), "-12", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(899.0f, 909.0f, 34.0f, 15.0f), "-6", scaledFont(9.2f));
-    drawUiLabel(g, scaledBoundsF(915.0f, 887.0f, 70.0f, 25.0f), "dB", scaledFont(12.4f), juce::Justification::centredRight);
+    drawTextValue(g, scaledBounds(552, 879, 42, 24), levelToDbText(juce::jmax(masterLeft, masterRight)), scaledFont(12.7f), juce::Justification::centredRight);
+    drawUiLabel(g, scaledBoundsF(593.0f, 909.0f, 34.0f, 15.0f), "-60", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(644.0f, 909.0f, 34.0f, 15.0f), "-48", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(695.0f, 909.0f, 34.0f, 15.0f), "-36", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(746.0f, 909.0f, 34.0f, 15.0f), "-24", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(797.0f, 909.0f, 34.0f, 15.0f), "-18", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(848.0f, 909.0f, 34.0f, 15.0f), "-12", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(899.0f, 909.0f, 34.0f, 15.0f), "-6", scaledFont(10.2f));
+    drawUiLabel(g, scaledBoundsF(915.0f, 884.0f, 70.0f, 25.0f), "dB", scaledFont(12.8f), juce::Justification::centredRight);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -1000,7 +988,7 @@ SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::WaveformPreview(Scen
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced(1.0f, 0.0f);
-    const auto accent = Theme::layerColour(layerIndex);
+    const auto accent = Theme::layerColour(layerIndex).interpolatedWith(Theme::purple, 0.62f);
     const auto highlight = Theme::layerHighlightColour(layerIndex);
 
     std::array<float, SceneLooperAudioProcessor::waveformPreviewPoints> preview;
@@ -1022,7 +1010,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
     if (! hasPreview)
     {
-        g.setColour(accent.withAlpha(0.16f));
+        g.setColour(accent.withAlpha(0.10f));
         g.drawLine(bounds.getX() + 4.0f, centreY, bounds.getRight() - 4.0f, centreY, 1.0f);
         return;
     }
@@ -1033,7 +1021,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
     const float pointWidth = bounds.getWidth() / (float) SceneLooperAudioProcessor::waveformPreviewPoints;
     const float displayGain = processor.getLayerWaveformDisplayGain(layerIndex);
 
-    g.setColour(accent.withAlpha(0.12f));
+    g.setColour(accent.withAlpha(0.08f));
     g.drawLine(bounds.getX() + 6.0f, centreY, bounds.getRight() - 6.0f, centreY, 3.4f);
 
     for (int i = 0; i < SceneLooperAudioProcessor::waveformPreviewPoints; ++i)
@@ -1043,10 +1031,10 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
         const float peak = juce::jlimit(0.0f, 1.0f, (previous + preview[(size_t) i] * 1.8f + next) * 0.26f * displayGain);
         const float x = bounds.getX() + ((float) i + 0.5f) * pointWidth;
         const float y = juce::jmax(0.8f, peak * usableHeight);
-        const auto waveColour = accent.interpolatedWith(Theme::cyan, (float) i / (float) SceneLooperAudioProcessor::waveformPreviewPoints);
-        g.setColour(waveColour.withAlpha(0.16f));
+        const auto waveColour = accent.interpolatedWith(Theme::blue, (float) i / (float) SceneLooperAudioProcessor::waveformPreviewPoints * 0.22f);
+        g.setColour(waveColour.withAlpha(0.08f));
         g.fillRoundedRectangle(x - 2.0f, centreY - y - 2.0f, 4.0f, y * 2.0f + 4.0f, 1.6f);
-        g.setColour(waveColour.withAlpha(0.92f));
+        g.setColour(waveColour.withAlpha(0.58f));
         g.fillRoundedRectangle(x - 1.05f, centreY - y, 2.1f, y * 2.0f, 0.9f);
     }
 
@@ -1054,11 +1042,11 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
     if (cursorFraction >= 0.0)
     {
         const float cursorX = bounds.getX() + bounds.getWidth() * (float) cursorFraction;
-        g.setColour(Theme::cyan.withAlpha(0.22f));
+        g.setColour(Theme::purple.withAlpha(0.18f));
         g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 4.0f);
-        g.setColour(Theme::text.withAlpha(0.92f));
+        g.setColour(Theme::valueText.withAlpha(0.76f));
         g.drawLine(cursorX, bounds.getY() + 2.0f, cursorX, bounds.getBottom() - 2.0f, 1.35f);
-        g.setColour(highlight.withAlpha(0.70f));
+        g.setColour(highlight.interpolatedWith(Theme::purple, 0.55f).withAlpha(0.50f));
         g.fillEllipse(cursorX - 1.8f, bounds.getY() + 1.0f, 3.6f, 3.6f);
     }
 }
@@ -1101,7 +1089,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
     fileLabel.setColour(juce::Label::textColourId, Theme::valueText.withAlpha(0.86f));
     fileLabel.setJustificationType(juce::Justification::centredLeft);
-    fileLabel.setFont(juce::Font("Avenir Next", 9.6f, juce::Font::plain));
+    fileLabel.setFont(juce::Font("Avenir Next", 10.8f, juce::Font::plain));
     addAndMakeVisible(fileLabel);
     addAndMakeVisible(waveformPreview);
 
@@ -1282,14 +1270,14 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(17));
         value.setY(slider.getBottom() + scaledY(2));
         g.setColour(Theme::valueText.withAlpha(0.88f));
-        g.setFont(juce::Font("Avenir Next", scaledFont(10.2f), juce::Font::plain));
+        g.setFont(juce::Font("Avenir Next", scaledFont(11.4f), juce::Font::plain));
         g.drawFittedText(sliderValueText(slider), value, juce::Justification::centred, 1);
     };
 
     if (processor.isLayerLoaded(layerIndex))
         drawTinyFileBadge(g, scaledBoundsF(93.0f, 10.5f, 12.0f, 12.0f), Theme::layerColour(layerIndex));
 
-    drawTextValue(g, scaledBounds(640, 21, 43, 30), sliderValueText(volumeSlider), scaledFont(11.2f), juce::Justification::centred);
+    drawTextValue(g, scaledBounds(638, 21, 48, 30), sliderValueText(volumeSlider), scaledFont(12.2f), juce::Justification::centred);
     drawControlValue(panSlider, 46);
     drawControlValue(autoPanAmountSlider, 46);
     drawControlValue(autoPanRateSlider, 52);
@@ -1302,8 +1290,8 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     drawControlValue(xfadeSlider, 54);
 
     g.setColour(Theme::valueText.withAlpha(0.82f));
-    g.setFont(juce::Font("Avenir Next", scaledFont(9.6f), juce::Font::plain));
-    g.drawFittedText(lengthLabel.getText(), scaledBounds(308, 10, 62, 18),
+    g.setFont(juce::Font("Avenir Next", scaledFont(10.8f), juce::Font::plain));
+    g.drawFittedText(lengthLabel.getText(), scaledBounds(305, 49, 82, 18),
                      juce::Justification::centredRight, 1);
 
     auto led = scaledBoundsF(106.0f, 63.0f, 318.0f, 5.5f);
@@ -1326,15 +1314,23 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         g.setColour(active ? colour.withAlpha(0.36f) : juce::Colour(0xff0b2a30).withAlpha(0.08f));
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.6f, segmentWidth - 2.0f), led.getHeight(), 0.55f);
     }
+
+    if (! onButton.getToggleState())
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.34f));
+        g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(1.0f, 1.0f), 3.5f);
+        g.setColour(juce::Colour(0xff011115).withAlpha(0.20f));
+        g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(3.0f, 5.0f), 3.0f);
+    }
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(110, 10, 196, 18));
-    waveformPreview.setBounds(scaledBounds(92, 25, 328, 36));
-    loadButton.setBounds(scaledBounds(374, 10, 64, 26));
+    fileLabel.setBounds(scaledBounds(110, 49, 190, 18));
+    waveformPreview.setBounds(scaledBounds(92, 18, 298, 31));
+    loadButton.setBounds(scaledBounds(394, 21, 50, 22));
 
     onButton.setBounds(scaledBounds(452, 19, 28, 28));
     soloButton.setBounds(scaledBounds(488, 19, 28, 28));

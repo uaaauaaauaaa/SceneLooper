@@ -17,6 +17,8 @@ const juce::Colour blue { 0xff2b61d6 };
 const juce::Colour purple { 0xff8e45ee };
 const juce::Colour text { 0xffd9d8ce };
 const juce::Colour mutedText { 0xffaeb6ad };
+const juce::Colour labelText { 0xffb3a69e };
+const juce::Colour valueText { 0xffbeb1a8 };
 
 constexpr int designWidth = 1672;
 constexpr int designHeight = 941;
@@ -233,8 +235,8 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
     else
         drawFolderIcon(g, icon, accent);
 
-    g.setColour(Theme::text.withAlpha(highlighted ? 0.92f : 0.82f));
-    g.setFont(juce::Font(scaledFont(14.2f), juce::Font::plain));
+    g.setColour(Theme::labelText.withAlpha(highlighted ? 0.96f : 0.84f));
+    g.setFont(juce::Font("Avenir Next", scaledFont(14.2f), juce::Font::plain));
     g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(50)).reduced(scaledX(4), 0),
                      juce::Justification::centredLeft, 1);
 }
@@ -242,9 +244,58 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
 void drawTextValue(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text,
                    float fontSize = 14.0f, juce::Justification justification = juce::Justification::centredLeft)
 {
-    g.setColour(Theme::text.withAlpha(0.90f));
-    g.setFont(juce::Font(fontSize, juce::Font::plain));
+    g.setColour(Theme::valueText.withAlpha(0.92f));
+    g.setFont(juce::Font("Avenir Next", fontSize, juce::Font::plain));
     g.drawFittedText(text, bounds.reduced(6, 0), justification, 1);
+}
+
+float trackedTextWidth(const juce::Font& font, const juce::String& text, float tracking)
+{
+    float width = 0.0f;
+    for (int i = 0; i < text.length(); ++i)
+        width += font.getStringWidthFloat(text.substring(i, i + 1));
+
+    return width + juce::jmax(0, text.length() - 1) * tracking;
+}
+
+void drawTrackedText(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& text,
+                     float fontSize, juce::Justification justification = juce::Justification::centred,
+                     float tracking = 1.2f, juce::Colour colour = Theme::labelText, bool shadow = true)
+{
+    auto font = juce::Font("Avenir Next", fontSize, juce::Font::plain);
+    const auto textWidth = trackedTextWidth(font, text, tracking);
+    auto x = bounds.getX();
+
+    if (justification.testFlags(juce::Justification::horizontallyCentred))
+        x = bounds.getCentreX() - textWidth * 0.5f;
+    else if (justification.testFlags(juce::Justification::right))
+        x = bounds.getRight() - textWidth;
+
+    const auto y = bounds.getCentreY() - font.getHeight() * 0.5f;
+    auto draw = [&] (juce::Colour c, float dx, float dy)
+    {
+        g.setColour(c);
+        g.setFont(font);
+        auto cx = x + dx;
+        for (int i = 0; i < text.length(); ++i)
+        {
+            const auto ch = text.substring(i, i + 1);
+            g.drawSingleLineText(ch, (int) std::round(cx), (int) std::round(y + dy + font.getAscent()));
+            cx += font.getStringWidthFloat(ch) + tracking;
+        }
+    };
+
+    if (shadow)
+        draw(juce::Colours::black.withAlpha(0.32f), 0.0f, 1.0f);
+
+    draw(colour, 0.0f, 0.0f);
+}
+
+void drawUiLabel(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& text,
+                 float fontSize = scaledFont(11.5f), juce::Justification justification = juce::Justification::centred,
+                 float tracking = scaledX(1.05f))
+{
+    drawTrackedText(g, bounds, text, fontSize, justification, tracking, Theme::labelText.withAlpha(0.96f), true);
 }
 
 juce::String sliderValueText(juce::Slider& slider)
@@ -306,11 +357,11 @@ public:
         const auto displayPos = juce::jlimit(0.0f, 1.0f, invertGlow ? 1.0f - sliderPos : sliderPos);
         const auto glow = displayPos;
 
-        const auto innerGlow = 1.6f + glow * 1.2f;
-        const auto outerGlow = 2.4f + glow * 0.8f;
-        g.setColour(accent.withAlpha(0.12f + glow * 0.20f));
+        const auto innerGlow = 0.8f + glow * 0.45f;
+        const auto outerGlow = 1.4f + glow * 0.35f;
+        g.setColour(accent.withAlpha(0.035f + glow * 0.045f));
         g.fillEllipse(r.expanded(innerGlow));
-        g.setColour(accent.withAlpha(0.04f + glow * 0.09f));
+        g.setColour(accent.withAlpha(0.012f + glow * 0.025f));
         g.fillEllipse(r.expanded(outerGlow));
 
         g.setColour(juce::Colours::black.withAlpha(0.58f));
@@ -325,7 +376,7 @@ public:
         g.setColour(juce::Colours::white.withAlpha(0.10f));
         g.fillEllipse(r.reduced(radius * 0.24f).withTrimmedBottom(radius * 0.55f).translated(-radius * 0.10f, -radius * 0.10f));
 
-        g.setColour(accent.withAlpha(0.38f + glow * 0.34f));
+        g.setColour(accent.withAlpha(0.12f + glow * 0.12f));
         g.drawEllipse(r.expanded(1.4f), 1.0f);
         g.setColour(Theme::stroke.withAlpha(0.48f));
         g.drawEllipse(r, 0.8f);
@@ -340,10 +391,10 @@ public:
         juce::Path value;
         value.addCentredArc(centre.x, centre.y, radius - 3.4f, radius - 3.4f, 0.0f,
                             rotaryStartAngle, rotaryStartAngle + displayPos * (rotaryEndAngle - rotaryStartAngle), true);
-        g.setColour(accent.withAlpha(0.11f + glow * 0.14f));
-        g.strokePath(value, juce::PathStrokeType(7.0f + glow * 2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour(accent.withAlpha(0.68f + glow * 0.24f));
-        g.strokePath(value, juce::PathStrokeType(2.4f + glow * 0.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(accent.withAlpha(0.035f + glow * 0.055f));
+        g.strokePath(value, juce::PathStrokeType(4.5f + glow * 0.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(accent.withAlpha(0.32f + glow * 0.22f));
+        g.strokePath(value, juce::PathStrokeType(1.7f + glow * 0.3f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         const auto indicator = centre + juce::Point<float>(std::cos(angle - juce::MathConstants<float>::halfPi),
                                                            std::sin(angle - juce::MathConstants<float>::halfPi)) * (radius - 9.0f);
@@ -794,6 +845,14 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
+    drawTrackedText(g, scaledBoundsF(132.0f, 18.0f, 300.0f, 35.0f), "Atmocycle", scaledFont(30.0f),
+                    juce::Justification::centredLeft, scaledX(1.6f), juce::Colour(0xffddd7cf), true);
+    drawTrackedText(g, scaledBoundsF(132.0f, 50.0f, 220.0f, 18.0f), "by Echosynthesis", scaledFont(11.0f),
+                    juce::Justification::centredLeft, scaledX(1.9f), Theme::labelText.withAlpha(0.86f), true);
+    drawTrackedText(g, scaledBoundsF(132.0f, 75.0f, 305.0f, 18.0f), "MULTI-LAYER AMBIENCE PLAYER", scaledFont(10.6f),
+                    juce::Justification::centredLeft, scaledX(2.0f), Theme::purple.withAlpha(0.88f), true);
+
+    drawUiLabel(g, scaledBoundsF(728.0f, 13.0f, 70.0f, 17.0f), "SCENE", scaledFont(10.0f));
     drawTopButtonContent(g, scaledBounds(986.0f, 31.0f, 128.0f, 53.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
     drawTopButtonContent(g, scaledBounds(1147.0f, 31.0f, 128.0f, 53.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
 
@@ -801,9 +860,31 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
                                ? juce::String("Project State")
                                : processor.getCurrentSceneName();
 
-    g.setColour(Theme::text.withAlpha(0.86f));
-    g.setFont(juce::Font(scaledFont(15.8f), juce::Font::plain));
+    g.setColour(Theme::valueText.withAlpha(0.90f));
+    g.setFont(juce::Font("Avenir Next", scaledFont(15.0f), juce::Font::plain));
     g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
+
+    drawUiLabel(g, scaledBoundsF(160.0f, 139.0f, 170.0f, 20.0f), "MASTER OUTPUT", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(568.0f, 139.0f, 185.0f, 20.0f), "GLOBAL CROSSFADE", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(972.0f, 139.0f, 175.0f, 20.0f), "MASTER LOW CUT", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(1390.0f, 139.0f, 185.0f, 20.0f), "MASTER HIGH CUT", scaledFont(12.0f), juce::Justification::centredLeft);
+
+    drawUiLabel(g, scaledBoundsF(31.0f, 246.0f, 65.0f, 20.0f), "LAYER", scaledFont(10.5f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(128.0f, 246.0f, 170.0f, 20.0f), "FILE / LOOP", scaledFont(10.5f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(395.0f, 246.0f, 100.0f, 20.0f), "CONTROL", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(580.0f, 246.0f, 80.0f, 20.0f), "VOLUME", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(716.0f, 246.0f, 60.0f, 20.0f), "PAN", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(815.0f, 238.0f, 90.0f, 15.0f), "AUTO PAN", scaledFont(10.0f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(815.0f, 253.0f, 90.0f, 15.0f), "AMOUNT", scaledFont(10.0f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(918.0f, 238.0f, 85.0f, 15.0f), "AUTO PAN", scaledFont(10.0f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(918.0f, 253.0f, 85.0f, 15.0f), "RATE", scaledFont(10.0f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1018.0f, 246.0f, 70.0f, 20.0f), "SPEED", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1112.0f, 246.0f, 65.0f, 20.0f), "DRIFT", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1205.0f, 246.0f, 70.0f, 20.0f), "WIDTH", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1297.0f, 246.0f, 110.0f, 20.0f), "START OFFSET", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1430.0f, 246.0f, 45.0f, 20.0f), "HP", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1510.0f, 246.0f, 45.0f, 20.0f), "LP", scaledFont(10.5f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1581.0f, 246.0f, 75.0f, 20.0f), "XFADE", scaledFont(10.5f), juce::Justification::centred);
 
     drawTextValue(g, scaledBounds(151, 167, 157, 43), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawTextValue(g, scaledBounds(563, 167, 157, 43), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
@@ -812,6 +893,10 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 
     const auto randomSlot = scaledBounds(29, 879, 225, 43);
     drawDiceIcon(g, randomSlot.toFloat().withTrimmedLeft(scaledX(25)).withTrimmedRight(scaledX(160)).reduced(0.0f, scaledY(5.0f)));
+
+    drawUiLabel(g, scaledBoundsF(77.0f, 855.0f, 170.0f, 20.0f), "RANDOMIZATION", scaledFont(10.4f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(350.0f, 855.0f, 135.0f, 20.0f), "RANDOM START", scaledFont(10.4f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(596.0f, 855.0f, 150.0f, 20.0f), "MASTER METER", scaledFont(10.4f), juce::Justification::centredLeft);
 
     drawTextValue(g, scaledBounds(337, 879, 127, 43), sliderValueText(randomStartSlider), scaledFont(13.8f), juce::Justification::centred);
 
@@ -838,6 +923,14 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     drawMeterRow(masterRight, ledArea.getY() + scaledY(12.0f), scaledY(7.0f));
 
     drawTextValue(g, scaledBounds(536, 883, 58, 26), levelToDbText(juce::jmax(masterLeft, masterRight)), scaledFont(12.5f), juce::Justification::centredRight);
+    drawUiLabel(g, scaledBoundsF(593.0f, 909.0f, 34.0f, 15.0f), "-60", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(644.0f, 909.0f, 34.0f, 15.0f), "-48", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(695.0f, 909.0f, 34.0f, 15.0f), "-36", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(746.0f, 909.0f, 34.0f, 15.0f), "-24", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(797.0f, 909.0f, 34.0f, 15.0f), "-18", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(848.0f, 909.0f, 34.0f, 15.0f), "-12", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(899.0f, 909.0f, 34.0f, 15.0f), "-6", scaledFont(9.2f));
+    drawUiLabel(g, scaledBoundsF(915.0f, 887.0f, 70.0f, 25.0f), "dB", scaledFont(12.4f), juce::Justification::centredRight);
 }
 
 void SceneLooperAudioProcessorEditor::resized()
@@ -1006,9 +1099,9 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     loadButton.setButtonText("Load");
     loadButton.setTooltip("Load WAV: choose an audio file for this layer.");
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
-    fileLabel.setColour(juce::Label::textColourId, Theme::text.withAlpha(0.82f));
+    fileLabel.setColour(juce::Label::textColourId, Theme::valueText.withAlpha(0.86f));
     fileLabel.setJustificationType(juce::Justification::centredLeft);
-    fileLabel.setFont(juce::Font(9.6f, juce::Font::plain));
+    fileLabel.setFont(juce::Font("Avenir Next", 9.6f, juce::Font::plain));
     addAndMakeVisible(fileLabel);
     addAndMakeVisible(waveformPreview);
 
@@ -1188,8 +1281,8 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     {
         auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(17));
         value.setY(slider.getBottom() + scaledY(2));
-        g.setColour(Theme::mutedText.withAlpha(0.88f));
-        g.setFont(juce::Font(scaledFont(10.4f), juce::Font::plain));
+        g.setColour(Theme::valueText.withAlpha(0.88f));
+        g.setFont(juce::Font("Avenir Next", scaledFont(10.2f), juce::Font::plain));
         g.drawFittedText(sliderValueText(slider), value, juce::Justification::centred, 1);
     };
 
@@ -1208,8 +1301,8 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     drawControlValue(lpSlider, 52);
     drawControlValue(xfadeSlider, 54);
 
-    g.setColour(Theme::mutedText.withAlpha(0.88f));
-    g.setFont(juce::Font(scaledFont(10.4f), juce::Font::plain));
+    g.setColour(Theme::valueText.withAlpha(0.82f));
+    g.setFont(juce::Font("Avenir Next", scaledFont(9.6f), juce::Font::plain));
     g.drawFittedText(lengthLabel.getText(), scaledBounds(308, 10, 62, 18),
                      juce::Justification::centredRight, 1);
 
@@ -1240,7 +1333,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
     fileLabel.setBounds(scaledBounds(110, 10, 196, 18));
-    waveformPreview.setBounds(scaledBounds(92, 25, 360, 36));
+    waveformPreview.setBounds(scaledBounds(92, 25, 328, 36));
     loadButton.setBounds(scaledBounds(374, 10, 64, 26));
 
     onButton.setBounds(scaledBounds(452, 19, 28, 28));
@@ -1255,16 +1348,16 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
                          scaledX(size), scaledY(size));
     };
 
-    placeKnob(panSlider, 700, 34);
-    placeKnob(autoPanAmountSlider, 782, 34);
-    placeKnob(autoPanRateSlider, 862, 34);
-    placeKnob(speedSlider, 949, 34);
-    placeKnob(driftSlider, 1025, 34);
-    placeKnob(widthSlider, 1105, 34);
-    placeKnob(offsetSlider, 1190, 34);
-    placeKnob(hpSlider, 1270, 34);
-    placeKnob(lpSlider, 1350, 34);
-    placeKnob(xfadeSlider, 1430, 34);
+    placeKnob(panSlider, 724, 34);
+    placeKnob(autoPanAmountSlider, 838, 34);
+    placeKnob(autoPanRateSlider, 940, 34);
+    placeKnob(speedSlider, 1026, 34);
+    placeKnob(driftSlider, 1126, 34);
+    placeKnob(widthSlider, 1218, 34);
+    placeKnob(offsetSlider, 1332, 34);
+    placeKnob(hpSlider, 1428, 34);
+    placeKnob(lpSlider, 1508, 34);
+    placeKnob(xfadeSlider, 1592, 34);
 
     lengthLabel.setBounds(scaledBounds(1502, 17, 116, 18));
     remainLabel.setBounds(scaledBounds(1502, 34, 116, 18));

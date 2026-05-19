@@ -690,7 +690,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     setupMacro(masterSlider, " dB");
     setupMacro(globalXFadeSlider, " s");
     setupMacro(masterLowCutSlider, " Hz");
-    setupMacro(masterHighCutSlider, "");
+    setupMacro(masterHighCutSlider, " Hz");
     setupMacro(randomStartSlider, "%");
     masterSlider.setName("MasterOutput");
     globalXFadeSlider.setName("GlobalCrossfade");
@@ -703,11 +703,12 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     randomStartSlider.setColour(juce::Slider::rotarySliderFillColourId, Theme::purple);
     masterHighCutSlider.textFromValueFunction = [] (double value)
     {
-        return juce::String(value / 1000.0, 1) + " kHz";
+        return juce::String((int) std::round(value)) + " Hz";
     };
     masterHighCutSlider.valueFromTextFunction = [] (const juce::String& text)
     {
-        return text.retainCharacters("0123456789.").getDoubleValue() * 1000.0;
+        const auto value = text.retainCharacters("0123456789.").getDoubleValue();
+        return text.containsIgnoreCase("k") ? value * 1000.0 : value;
     };
     masterLowCutSlider.textFromValueFunction = [] (double value)
     {
@@ -862,18 +863,18 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
     drawUiLabel(g, scaledBoundsF(128.0f, 245.0f, 180.0f, 22.0f), "FILE / LOOP", scaledFont(12.2f), juce::Justification::centredLeft);
     drawUiLabel(g, scaledBoundsF(395.0f, 245.0f, 100.0f, 22.0f), "CONTROL", scaledFont(12.2f), juce::Justification::centred);
     drawUiLabel(g, scaledBoundsF(580.0f, 245.0f, 85.0f, 22.0f), "VOLUME", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(716.0f, 245.0f, 60.0f, 22.0f), "PAN", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(815.0f, 237.0f, 90.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(815.0f, 253.0f, 90.0f, 16.0f), "AMOUNT", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(918.0f, 237.0f, 85.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(918.0f, 253.0f, 85.0f, 16.0f), "RATE", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1018.0f, 245.0f, 70.0f, 22.0f), "SPEED", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1112.0f, 245.0f, 65.0f, 22.0f), "DRIFT", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1205.0f, 245.0f, 70.0f, 22.0f), "WIDTH", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1297.0f, 245.0f, 115.0f, 22.0f), "START OFFSET", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1430.0f, 245.0f, 45.0f, 22.0f), "HP", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1510.0f, 245.0f, 45.0f, 22.0f), "LP", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1581.0f, 245.0f, 75.0f, 22.0f), "XFADE", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(728.0f, 245.0f, 60.0f, 22.0f), "PAN", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(823.0f, 237.0f, 90.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(823.0f, 253.0f, 90.0f, 16.0f), "AMOUNT", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(925.0f, 237.0f, 85.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(925.0f, 253.0f, 85.0f, 16.0f), "RATE", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1025.0f, 245.0f, 70.0f, 22.0f), "SPEED", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1120.0f, 245.0f, 65.0f, 22.0f), "DRIFT", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1210.0f, 245.0f, 70.0f, 22.0f), "WIDTH", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1298.0f, 245.0f, 115.0f, 22.0f), "START OFFSET", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1428.0f, 245.0f, 45.0f, 22.0f), "HP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1508.0f, 245.0f, 45.0f, 22.0f), "LP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1576.0f, 245.0f, 75.0f, 22.0f), "XFADE", scaledFont(12.2f), juce::Justification::centred);
 
     drawTextValue(g, scaledBounds(151, 167, 157, 43), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawTextValue(g, scaledBounds(563, 167, 157, 43), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
@@ -1095,7 +1096,10 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
-    onButton.setTooltip("Layer On/Off: enable or mute this layer.");
+    makeHitZoneOnly(onButton);
+    onButton.setTooltip("Layer number: click to enable or mute this layer.");
+    onButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    onButton.onStateChange = [this] { repaint(); };
     soloButton.setButtonText("S");
     addAndMakeVisible(soloButton);
     soloButton.setTooltip("Solo: listen to this layer by itself.");
@@ -1242,9 +1246,15 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
                 {
                     juce::String error;
                     if (! processor.loadFileForLayer(layerIndex, file, error))
+                    {
                         juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Atmocycle", error);
-                    refreshFileName();
-                    refreshTimeDisplay();
+                    }
+                    else
+                    {
+                        setLayerOn(true);
+                        refreshFileName();
+                        refreshTimeDisplay();
+                    }
                 }
             });
     };
@@ -1257,6 +1267,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::setupSlider(juce::Slider& slider
     slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     slider.setTextValueSuffix(suffix);
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::setLayerOn(bool shouldBeOn)
+{
+    if (auto* parameter = processor.apvts.getParameter(SceneLooperAudioProcessor::paramId(layerIndex, "on")))
+    {
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(shouldBeOn ? 1.0f : 0.0f));
+        parameter->endChangeGesture();
+    }
+
+    onButton.setToggleState(shouldBeOn, juce::dontSendNotification);
+    repaint();
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics&)
@@ -1277,7 +1300,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
     if (processor.isLayerLoaded(layerIndex))
         drawTinyFileBadge(g, scaledBoundsF(93.0f, 10.5f, 12.0f, 12.0f), Theme::layerColour(layerIndex));
 
-    drawTextValue(g, scaledBounds(638, 21, 48, 30), sliderValueText(volumeSlider), scaledFont(12.2f), juce::Justification::centred);
+    drawTextValue(g, scaledBounds(652, 21, 58, 30), sliderValueText(volumeSlider), scaledFont(12.2f), juce::Justification::centred);
     drawControlValue(panSlider, 46);
     drawControlValue(autoPanAmountSlider, 46);
     drawControlValue(autoPanRateSlider, 52);
@@ -1315,7 +1338,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.6f, segmentWidth - 2.0f), led.getHeight(), 0.55f);
     }
 
-    if (! onButton.getToggleState())
+    if (! processor.isLayerLoaded(layerIndex) || ! onButton.getToggleState())
     {
         g.setColour(juce::Colours::black.withAlpha(0.34f));
         g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(1.0f, 1.0f), 3.5f);
@@ -1328,15 +1351,15 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(110, 49, 190, 18));
-    waveformPreview.setBounds(scaledBounds(92, 18, 298, 31));
-    loadButton.setBounds(scaledBounds(394, 21, 50, 22));
+    fileLabel.setBounds(scaledBounds(110, 49, 220, 18));
+    waveformPreview.setBounds(scaledBounds(92, 18, 330, 31));
+    loadButton.setBounds(scaledBounds(434, 21, 50, 22));
 
-    onButton.setBounds(scaledBounds(452, 19, 28, 28));
-    soloButton.setBounds(scaledBounds(488, 19, 28, 28));
-    autoPanButton.setBounds(scaledBounds(524, 19, 28, 28));
+    onButton.setBounds(scaledBounds(0, 0, 72, 70));
+    soloButton.setBounds(scaledBounds(494, 19, 28, 28));
+    autoPanButton.setBounds(scaledBounds(532, 19, 28, 28));
 
-    volumeSlider.setBounds(scaledBounds(578, 22, 78, 26));
+    volumeSlider.setBounds(scaledBounds(578, 22, 68, 26));
 
     auto placeKnob = [] (juce::Slider& slider, int centreX, int centreY, int size = 42)
     {
@@ -1344,16 +1367,16 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
                          scaledX(size), scaledY(size));
     };
 
-    placeKnob(panSlider, 724, 34);
-    placeKnob(autoPanAmountSlider, 838, 34);
-    placeKnob(autoPanRateSlider, 940, 34);
-    placeKnob(speedSlider, 1026, 34);
-    placeKnob(driftSlider, 1126, 34);
-    placeKnob(widthSlider, 1218, 34);
-    placeKnob(offsetSlider, 1332, 34);
-    placeKnob(hpSlider, 1428, 34);
-    placeKnob(lpSlider, 1508, 34);
-    placeKnob(xfadeSlider, 1592, 34);
+    placeKnob(panSlider, 742, 34);
+    placeKnob(autoPanAmountSlider, 850, 34);
+    placeKnob(autoPanRateSlider, 952, 34);
+    placeKnob(speedSlider, 1044, 34);
+    placeKnob(driftSlider, 1136, 34);
+    placeKnob(widthSlider, 1228, 34);
+    placeKnob(offsetSlider, 1338, 34);
+    placeKnob(hpSlider, 1434, 34);
+    placeKnob(lpSlider, 1514, 34);
+    placeKnob(xfadeSlider, 1598, 34);
 
     lengthLabel.setBounds(scaledBounds(1502, 17, 116, 18));
     remainLabel.setBounds(scaledBounds(1502, 34, 116, 18));

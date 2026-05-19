@@ -98,6 +98,7 @@ private:
         std::unique_ptr<SliderAttachment> offsetAttachment;
 
         void setupSlider(juce::Slider& slider, const juce::String& suffix);
+        void setLayerOn(bool shouldBeOn);
     };
 
     SceneLooperAudioProcessor& processor;

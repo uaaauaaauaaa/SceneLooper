@@ -1054,8 +1054,7 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
         return std::array<float, 8> { -24.0f, -21.0f, -18.0f, -15.0f, -12.0f, -9.0f, -6.0f, 0.0f };
     }();
 
-    constexpr int bars = 52;
-    auto zoomedMeterLevel = [meterMinDb, meterMaxDb] (float level)
+    auto zoomedMeterLevel = [&] (float level)
     {
         if (level <= 0.000001f)
             return 0.0f;
@@ -1064,7 +1063,8 @@ void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
         return juce::jmap(juce::jlimit(meterMinDb, meterMaxDb, db), meterMinDb, meterMaxDb, 0.0f, 1.0f);
     };
 
-    auto drawMeterRow = [&g, &ledArea, &zoomedMeterLevel] (float level, float y, float h)
+    constexpr int bars = 52;
+    auto drawMeterRow = [&] (float level, float y, float h)
     {
         const auto shownLevel = zoomedMeterLevel(level);
         for (int i = 0; i < bars; ++i)

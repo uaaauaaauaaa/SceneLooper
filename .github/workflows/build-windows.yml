@@ -1,0 +1,45 @@
+name: Build Windows Plugins
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel 3
+      - name: Package Plugins
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact
+          
+          # Find and copy VST3
+          $vst3 = Get-ChildItem -Path build -Filter "Atmocycle.vst3" -Recurse -Directory | Select-Object -First 1
+          if ($vst3) {
+              Write-Host "Found VST3 at: $($vst3.FullName)"
+              Copy-Item -Recurse -Force -Path $vst3.FullName -Destination "artifact/Atmocycle.vst3"
+          } else {
+              Write-Warning "VST3 plugin not found!"
+          }
+          
+          # Find and copy AAX
+          $aax = Get-ChildItem -Path build -Filter "Atmocycle.aaxplugin" -Recurse -Directory | Select-Object -First 1
+          if ($aax) {
+              Write-Host "Found AAX at: $($aax.FullName)"
+              Copy-Item -Recurse -Force -Path $aax.FullName -Destination "artifact/Atmocycle.aaxplugin"
+          } else {
+              Write-Warning "AAX plugin not found!"
+          }
+          
+          # Compress artifacts
+          Compress-Archive -Path artifact/* -DestinationPath artifact/Atmocycle-Windows.zip
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Atmocycle-Windows
+          path: artifact/Atmocycle-Windows.zip

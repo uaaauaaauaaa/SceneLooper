@@ -37,11 +37,16 @@ private:
             void paint(juce::Graphics& g) override;
             void mouseDown(const juce::MouseEvent& event) override;
             void mouseDrag(const juce::MouseEvent& event) override;
+            void mouseUp(const juce::MouseEvent& event) override;
 
         private:
             SceneLooperAudioProcessor& processor;
             int layerIndex = 0;
+            bool selectingSkipRange = false;
+            double skipDragStart = -1.0;
+            double skipDragEnd = -1.0;
 
+            double fractionForPosition(juce::Point<float> position) const;
             void seekToMousePosition(juce::Point<float> position);
         };
 
@@ -55,6 +60,7 @@ private:
         juce::ToggleButton onButton { "On" };
         juce::ToggleButton soloButton { "Solo" };
         juce::ToggleButton autoPanButton { "AutoPan" };
+        juce::ToggleButton autopilotButton { "Autopilot" };
         juce::Label lengthLabel;
         juce::Label remainLabel;
         juce::Label volumeLabel;
@@ -62,6 +68,7 @@ private:
         juce::Label speedLabel;
         juce::Label driftLabel;
         juce::Label widthLabel;
+        juce::Label panXFadeLabel;
         juce::Label autoPanAmountLabel;
         juce::Label autoPanRateLabel;
         juce::Label hpLabel;
@@ -73,6 +80,7 @@ private:
         juce::Slider speedSlider;
         juce::Slider driftSlider;
         juce::Slider widthSlider;
+        juce::Slider panXFadeSlider;
         juce::Slider autoPanAmountSlider;
         juce::Slider autoPanRateSlider;
         juce::Slider hpSlider;
@@ -85,11 +93,13 @@ private:
         std::unique_ptr<ButtonAttachment> onAttachment;
         std::unique_ptr<ButtonAttachment> soloAttachment;
         std::unique_ptr<ButtonAttachment> autoPanAttachment;
+        std::unique_ptr<ButtonAttachment> autopilotAttachment;
         std::unique_ptr<SliderAttachment> volumeAttachment;
         std::unique_ptr<SliderAttachment> panAttachment;
         std::unique_ptr<SliderAttachment> speedAttachment;
         std::unique_ptr<SliderAttachment> driftAttachment;
         std::unique_ptr<SliderAttachment> widthAttachment;
+        std::unique_ptr<SliderAttachment> panXFadeAttachment;
         std::unique_ptr<SliderAttachment> autoPanAmountAttachment;
         std::unique_ptr<SliderAttachment> autoPanRateAttachment;
         std::unique_ptr<SliderAttachment> hpAttachment;
@@ -118,6 +128,8 @@ private:
     juce::TextButton saveSceneButton { "Save Scene" };
     juce::TextButton loadSceneButton { "Load Scene" };
     juce::TextButton randomizeButton { "Randomize" };
+    juce::TextButton versionButton { "Version" };
+    std::array<juce::Label, 14> headerTooltipZones;
     juce::Slider masterSlider;
     juce::Slider globalXFadeSlider;
     juce::Slider masterLowCutSlider;

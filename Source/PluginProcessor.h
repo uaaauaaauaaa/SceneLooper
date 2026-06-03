@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <vector>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
@@ -11,6 +12,12 @@ class SceneLooperAudioProcessor : public juce::AudioProcessor
 public:
     static constexpr int numLayers = 8;
     static constexpr int waveformPreviewPoints = 128;
+    static constexpr int maxSkipRanges = 8;
+    struct SkipRange
+    {
+        double start = 0.0;
+        double end = 0.0;
+    };
 
     SceneLooperAudioProcessor();
     ~SceneLooperAudioProcessor() override;
@@ -47,12 +54,17 @@ public:
     double getLayerRemainingSeconds(int layerIndex) const;
     double getLayerPlaybackPositionFraction(int layerIndex) const;
     void seekLayerToFraction(int layerIndex, double fraction);
+    std::vector<SkipRange> getLayerSkipRanges(int layerIndex) const;
+    void addLayerSkipRange(int layerIndex, double startFraction, double endFraction);
+    void clearLayerSkipRanges(int layerIndex);
     bool copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const;
     float getLayerLevel(int layerIndex) const;
     float getLayerWaveformDisplayGain(int layerIndex) const;
     float getMasterLevel() const;
     float getMasterLeftLevel() const;
     float getMasterRightLevel() const;
+    bool isLayerAutopilotOn(int layerIndex) const;
+    float getLayerAutopilotPhase(int layerIndex) const;
     void randomizeLayerStarts();
     bool saveSceneToFile(const juce::File& file, juce::String& errorMessage) const;
     bool loadSceneFromFile(const juce::File& file, juce::String& errorMessage);
@@ -90,6 +102,13 @@ private:
         bool loaded = false;
         double position = 0.0;
         double autoPanPhase = 0.0;
+        double autopilotPanPhase = 0.0;
+        double autopilotPanRateHz = 1.0 / 45.0;
+        double autopilotNextJumpSamples = 0.0;
+        double autopilotBlendSourcePosition = 0.0;
+        double autopilotBlendTargetPosition = 0.0;
+        int autopilotBlendSamplesRemaining = 0;
+        int autopilotBlendSamplesTotal = 0;
         double driftPhase = 0.0;
         std::atomic<double> lengthSeconds { 0.0 };
         std::atomic<double> displayPositionSamples { 0.0 };
@@ -97,6 +116,9 @@ private:
         std::atomic<float> outputLevel { 0.0f };
         std::array<float, waveformPreviewPoints> waveformPreview {};
         std::atomic<bool> waveformPreviewReady { false };
+        std::array<std::atomic<double>, maxSkipRanges> skipStartFractions {};
+        std::array<std::atomic<double>, maxSkipRanges> skipEndFractions {};
+        std::atomic<int> skipRangeCount { 0 };
         OnePoleFilter hp[2];
         OnePoleFilter lp[2];
     };
@@ -119,10 +141,14 @@ private:
     void setParameterValue(const juce::String& id, float value);
     void markLayerMissingFile(int layerIndex, const juce::File& file);
     void clearLayerFile(int layerIndex);
+    juce::String encodeLayerSkipRanges(int layerIndex) const;
+    void restoreLayerSkipRangesFromString(int layerIndex, const juce::String& encoded);
     void buildWaveformPreview(int layerIndex);
     void resetLayerPlayback();
     void renderLayer(Layer& layer, int layerIndex, juce::AudioBuffer<float>& output, int numSamples, bool soloMode);
     void applyMasterProcessing(juce::AudioBuffer<float>& buffer);
+    int chooseAutopilotTargetSample(const Layer& layer, int length);
+    void scheduleAutopilotJump(Layer& layer);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneLooperAudioProcessor)
 };

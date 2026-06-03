@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 
 namespace
 {
@@ -20,6 +21,8 @@ SceneLooperAudioProcessor::SceneLooperAudioProcessor()
       apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     formatManager.registerBasicFormats();
+    for (auto& layer : layers)
+        layer.skipRangeCount.store(0, std::memory_order_relaxed);
 }
 
 SceneLooperAudioProcessor::~SceneLooperAudioProcessor() = default;
@@ -56,7 +59,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SceneLooperAudioProcessor::c
             juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "width", nice + "Width",
             juce::NormalisableRange<float>(0.0f, 120.0f, 1.0f), 100.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "panXFade", nice + "Pan XFade",
+            juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 0.0f));
         params.push_back(std::make_unique<juce::AudioParameterBool>(prefix + "autoPanOn", nice + "AutoPan On", false));
+        params.push_back(std::make_unique<juce::AudioParameterBool>(prefix + "autopilotOn", nice + "Autopilot", false));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "autoPanAmount", nice + "AutoPan Amount",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "autoPanRate", nice + "AutoPan Rate",
@@ -113,6 +119,7 @@ void SceneLooperAudioProcessor::markLayerMissingFile(int layerIndex, const juce:
     layer.outputLevel.store(0.0f, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
+    layer.skipRangeCount.store(0, std::memory_order_relaxed);
 }
 
 void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
@@ -131,6 +138,7 @@ void SceneLooperAudioProcessor::clearLayerFile(int layerIndex)
     layer.outputLevel.store(0.0f, std::memory_order_relaxed);
     layer.waveformPreview.fill(0.0f);
     layer.waveformPreviewReady.store(false, std::memory_order_relaxed);
+    layer.skipRangeCount.store(0, std::memory_order_relaxed);
 }
 
 const juce::String SceneLooperAudioProcessor::getName() const { return JucePlugin_Name; }
@@ -180,6 +188,11 @@ void SceneLooperAudioProcessor::resetLayerPlayback()
             layers[i].displayPositionSamples.store(0.0, std::memory_order_relaxed);
         }
         layers[i].autoPanPhase = 0.0;
+        layers[i].autopilotPanPhase = random.nextDouble() * juce::MathConstants<double>::twoPi;
+        layers[i].autopilotPanRateHz = 1.0 / (55.0 + random.nextDouble() * 65.0);
+        layers[i].autopilotBlendSamplesRemaining = 0;
+        layers[i].autopilotBlendSamplesTotal = 0;
+        scheduleAutopilotJump(layers[i]);
         layers[i].driftPhase = 0.0;
         layers[i].outputLevel.store(0.0f, std::memory_order_relaxed);
         for (auto& f : layers[i].hp) f.reset();
@@ -213,15 +226,9 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
         return false;
     }
 
-    if (std::abs(reader->sampleRate - 48000.0) > 0.1 || reader->bitsPerSample != 24)
-    {
-        errorMessage = "Use WAV 48 kHz / 24-bit";
-        return false;
-    }
-
     if (reader->numChannels < 1 || reader->numChannels > 2)
     {
-        errorMessage = "Use mono or stereo WAV";
+        errorMessage = "Use mono or stereo audio";
         return false;
     }
 
@@ -231,8 +238,31 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
         return false;
     }
 
-    juce::AudioBuffer<float> newBuffer((int) reader->numChannels, (int) reader->lengthInSamples);
-    reader->read(&newBuffer, 0, (int) reader->lengthInSamples, 0, true, true);
+    juce::AudioBuffer<float> sourceBuffer((int) reader->numChannels, (int) reader->lengthInSamples + 8);
+    sourceBuffer.clear();
+    reader->read(&sourceBuffer, 0, (int) reader->lengthInSamples, 0, true, true);
+
+    juce::AudioBuffer<float> newBuffer;
+    const double sourceRate = reader->sampleRate > 0.0 ? reader->sampleRate : currentSampleRate;
+    if (std::abs(sourceRate - currentSampleRate) < 0.1)
+    {
+        newBuffer.setSize(sourceBuffer.getNumChannels(), (int) reader->lengthInSamples);
+        for (int channel = 0; channel < newBuffer.getNumChannels(); ++channel)
+            newBuffer.copyFrom(channel, 0, sourceBuffer, channel, 0, newBuffer.getNumSamples());
+    }
+    else
+    {
+        const int targetSamples = juce::jmax(1, (int) std::ceil((double) reader->lengthInSamples * currentSampleRate / sourceRate));
+        newBuffer.setSize(sourceBuffer.getNumChannels(), targetSamples);
+        for (int channel = 0; channel < newBuffer.getNumChannels(); ++channel)
+        {
+            juce::LagrangeInterpolator resampler;
+            resampler.process(sourceRate / currentSampleRate,
+                              sourceBuffer.getReadPointer(channel),
+                              newBuffer.getWritePointer(channel),
+                              targetSamples);
+        }
+    }
 
     auto& layer = layers[layerIndex];
     layer.audio = std::move(newBuffer);
@@ -240,7 +270,7 @@ bool SceneLooperAudioProcessor::loadFileForLayer(int layerIndex, const juce::Fil
     layer.displayName = file.getFileName();
     layer.loaded = true;
     layer.position = apvts.getRawParameterValue(paramId(layerIndex, "offset"))->load() * currentSampleRate;
-    layer.lengthSeconds.store((double) reader->lengthInSamples / reader->sampleRate, std::memory_order_relaxed);
+    layer.lengthSeconds.store((double) layer.audio.getNumSamples() / currentSampleRate, std::memory_order_relaxed);
     layer.displayPositionSamples.store(std::fmod(layer.position, (double) layer.audio.getNumSamples()), std::memory_order_relaxed);
     layer.pendingSeekFraction.store(-1.0, std::memory_order_relaxed);
     buildWaveformPreview(layerIndex);
@@ -362,6 +392,85 @@ void SceneLooperAudioProcessor::seekLayerToFraction(int layerIndex, double fract
     layers[layerIndex].pendingSeekFraction.store(clampedFraction, std::memory_order_relaxed);
 }
 
+std::vector<SceneLooperAudioProcessor::SkipRange> SceneLooperAudioProcessor::getLayerSkipRanges(int layerIndex) const
+{
+    std::vector<SkipRange> ranges;
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return ranges;
+
+    const auto& layer = layers[layerIndex];
+    const int count = juce::jlimit(0, maxSkipRanges, layer.skipRangeCount.load(std::memory_order_relaxed));
+    ranges.reserve((size_t) count);
+    for (int i = 0; i < count; ++i)
+    {
+        const auto start = layer.skipStartFractions[(size_t) i].load(std::memory_order_relaxed);
+        const auto end = layer.skipEndFractions[(size_t) i].load(std::memory_order_relaxed);
+        if (end - start > 0.001)
+            ranges.push_back({ start, end });
+    }
+
+    return ranges;
+}
+
+void SceneLooperAudioProcessor::addLayerSkipRange(int layerIndex, double startFraction, double endFraction)
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return;
+
+    auto start = juce::jlimit(0.0, 1.0, std::min(startFraction, endFraction));
+    auto end = juce::jlimit(0.0, 1.0, std::max(startFraction, endFraction));
+    if (end - start < 0.006)
+        return;
+
+    auto ranges = getLayerSkipRanges(layerIndex);
+    ranges.push_back({ start, end });
+    std::sort(ranges.begin(), ranges.end(), [] (const auto& a, const auto& b) { return a.start < b.start; });
+
+    std::vector<SkipRange> merged;
+    for (const auto& range : ranges)
+    {
+        if (merged.empty() || range.start > merged.back().end + 0.002)
+            merged.push_back(range);
+        else
+            merged.back().end = std::max(merged.back().end, range.end);
+    }
+
+    auto& layer = layers[layerIndex];
+    const int count = juce::jmin(maxSkipRanges, (int) merged.size());
+    for (int i = 0; i < count; ++i)
+    {
+        layer.skipStartFractions[(size_t) i].store(juce::jlimit(0.0, 1.0, merged[(size_t) i].start), std::memory_order_relaxed);
+        layer.skipEndFractions[(size_t) i].store(juce::jlimit(0.0, 1.0, merged[(size_t) i].end), std::memory_order_relaxed);
+    }
+    layer.skipRangeCount.store(count, std::memory_order_relaxed);
+}
+
+void SceneLooperAudioProcessor::clearLayerSkipRanges(int layerIndex)
+{
+    if (juce::isPositiveAndBelow(layerIndex, numLayers))
+        layers[layerIndex].skipRangeCount.store(0, std::memory_order_relaxed);
+}
+
+juce::String SceneLooperAudioProcessor::encodeLayerSkipRanges(int layerIndex) const
+{
+    juce::StringArray parts;
+    for (const auto& range : getLayerSkipRanges(layerIndex))
+        parts.add(juce::String(range.start, 6) + ":" + juce::String(range.end, 6));
+
+    return parts.joinIntoString(";");
+}
+
+void SceneLooperAudioProcessor::restoreLayerSkipRangesFromString(int layerIndex, const juce::String& encoded)
+{
+    clearLayerSkipRanges(layerIndex);
+    for (const auto& part : juce::StringArray::fromTokens(encoded, ";", ""))
+    {
+        const auto values = juce::StringArray::fromTokens(part, ":", "");
+        if (values.size() == 2)
+            addLayerSkipRange(layerIndex, values[0].getDoubleValue(), values[1].getDoubleValue());
+    }
+}
+
 bool SceneLooperAudioProcessor::copyWaveformPreview(int layerIndex, std::array<float, waveformPreviewPoints>& destination) const
 {
     if (! juce::isPositiveAndBelow(layerIndex, numLayers)
@@ -409,9 +518,65 @@ float SceneLooperAudioProcessor::getMasterRightLevel() const
     return masterOutputLevelRight.load(std::memory_order_relaxed);
 }
 
+bool SceneLooperAudioProcessor::isLayerAutopilotOn(int layerIndex) const
+{
+    return juce::isPositiveAndBelow(layerIndex, numLayers)
+        && getParameterValue(paramId(layerIndex, "autopilotOn")) > 0.5f;
+}
+
+float SceneLooperAudioProcessor::getLayerAutopilotPhase(int layerIndex) const
+{
+    if (! juce::isPositiveAndBelow(layerIndex, numLayers))
+        return 0.0f;
+
+    const auto phase = std::fmod(layers[layerIndex].autopilotPanPhase, juce::MathConstants<double>::twoPi);
+    return (float) (phase / juce::MathConstants<double>::twoPi);
+}
+
 void SceneLooperAudioProcessor::randomizeLayerStarts()
 {
     resetLayerPlayback();
+}
+
+void SceneLooperAudioProcessor::scheduleAutopilotJump(Layer& layer)
+{
+    layer.autopilotNextJumpSamples = (20.0 + random.nextDouble() * 60.0) * currentSampleRate;
+}
+
+int SceneLooperAudioProcessor::chooseAutopilotTargetSample(const Layer& layer, int length)
+{
+    if (length <= 1)
+        return 0;
+
+    const double lengthSeconds = (double) length / juce::jmax(1.0, currentSampleRate);
+    const double marginSeconds = lengthSeconds > 180.0 ? 15.0 : juce::jmin(5.0, lengthSeconds * 0.08);
+    const int margin = juce::jlimit(0, length / 3, (int) std::round(marginSeconds * currentSampleRate));
+    const int minSample = juce::jlimit(0, length - 1, margin);
+    const int maxSample = juce::jlimit(minSample, length - 1, length - 1 - margin);
+
+    auto isInsideSkip = [&layer, length] (int sample)
+    {
+        const double fraction = (double) sample / (double) juce::jmax(1, length - 1);
+        const int count = juce::jlimit(0, maxSkipRanges, layer.skipRangeCount.load(std::memory_order_relaxed));
+        for (int i = 0; i < count; ++i)
+        {
+            const auto start = layer.skipStartFractions[(size_t) i].load(std::memory_order_relaxed);
+            const auto end = layer.skipEndFractions[(size_t) i].load(std::memory_order_relaxed);
+            if (fraction >= start && fraction < end)
+                return true;
+        }
+
+        return false;
+    };
+
+    for (int attempt = 0; attempt < 24; ++attempt)
+    {
+        const int sample = minSample + random.nextInt(juce::jmax(1, maxSample - minSample + 1));
+        if (! isInsideSkip(sample))
+            return sample;
+    }
+
+    return minSample;
 }
 
 juce::String SceneLooperAudioProcessor::getCurrentSceneName() const
@@ -452,13 +617,16 @@ bool SceneLooperAudioProcessor::saveSceneToFile(const juce::File& file, juce::St
         layer->setProperty("speed", getParameterValue(paramId(i, "speed")));
         layer->setProperty("drift", getParameterValue(paramId(i, "drift")));
         layer->setProperty("width", getParameterValue(paramId(i, "width")));
+        layer->setProperty("panXFade", getParameterValue(paramId(i, "panXFade")));
         layer->setProperty("autoPanEnabled", getParameterValue(paramId(i, "autoPanOn")) > 0.5f);
+        layer->setProperty("autopilotEnabled", getParameterValue(paramId(i, "autopilotOn")) > 0.5f);
         layer->setProperty("autoPanAmount", getParameterValue(paramId(i, "autoPanAmount")));
         layer->setProperty("autoPanRateHz", getParameterValue(paramId(i, "autoPanRate")));
         layer->setProperty("hp", getParameterValue(paramId(i, "hp")));
         layer->setProperty("lp", getParameterValue(paramId(i, "lp")));
         layer->setProperty("xfade", getParameterValue(paramId(i, "xfade")));
         layer->setProperty("startOffset", getParameterValue(paramId(i, "offset")));
+        layer->setProperty("skipRanges", encodeLayerSkipRanges(i));
 
         layerArray.add(layerVar);
     }
@@ -524,13 +692,16 @@ bool SceneLooperAudioProcessor::loadSceneFromFile(const juce::File& file, juce::
             setParameterValue(paramId(i, "speed"), getFloatPropertyOrDefault(*layer, "speed", 48.0f));
             setParameterValue(paramId(i, "drift"), getFloatPropertyOrDefault(*layer, "drift", 0.0f));
             setParameterValue(paramId(i, "width"), getFloatPropertyOrDefault(*layer, "width", 100.0f));
+            setParameterValue(paramId(i, "panXFade"), getFloatPropertyOrDefault(*layer, "panXFade", 0.0f));
             setParameterValue(paramId(i, "autoPanOn"), (bool) layer->getProperty("autoPanEnabled") ? 1.0f : 0.0f);
+            setParameterValue(paramId(i, "autopilotOn"), (bool) layer->getProperty("autopilotEnabled") ? 1.0f : 0.0f);
             setParameterValue(paramId(i, "autoPanAmount"), (float) layer->getProperty("autoPanAmount"));
             setParameterValue(paramId(i, "autoPanRate"), (float) layer->getProperty("autoPanRateHz"));
             setParameterValue(paramId(i, "hp"), (float) layer->getProperty("hp"));
             setParameterValue(paramId(i, "lp"), (float) layer->getProperty("lp"));
             setParameterValue(paramId(i, "xfade"), (float) layer->getProperty("xfade"));
             setParameterValue(paramId(i, "offset"), (float) layer->getProperty("startOffset"));
+            restoreLayerSkipRangesFromString(i, layer->getProperty("skipRanges").toString());
 
             const auto path = layer->getProperty("filePath").toString();
             if (path.isEmpty())
@@ -582,16 +753,24 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     const float speedKhz = apvts.getRawParameterValue(paramId(layerIndex, "speed"))->load();
     const float driftPercent = apvts.getRawParameterValue(paramId(layerIndex, "drift"))->load();
     const float widthPercent = apvts.getRawParameterValue(paramId(layerIndex, "width"))->load();
+    const float panXFadePercent = apvts.getRawParameterValue(paramId(layerIndex, "panXFade"))->load();
     const bool autoPanOn = apvts.getRawParameterValue(paramId(layerIndex, "autoPanOn"))->load() > 0.5f;
+    const bool autopilotOn = apvts.getRawParameterValue(paramId(layerIndex, "autopilotOn"))->load() > 0.5f;
     const float autoPanAmount = apvts.getRawParameterValue(paramId(layerIndex, "autoPanAmount"))->load();
     const float autoPanRate = apvts.getRawParameterValue(paramId(layerIndex, "autoPanRate"))->load();
     const float hp = apvts.getRawParameterValue(paramId(layerIndex, "hp"))->load();
     const float lp = apvts.getRawParameterValue(paramId(layerIndex, "lp"))->load();
     const float xfadeSeconds = apvts.getRawParameterValue(paramId(layerIndex, "xfade"))->load();
     const double autoPanPhaseDelta = juce::MathConstants<double>::twoPi * (double) autoPanRate / currentSampleRate;
-    constexpr double driftRateHz = 0.071;
-    constexpr double maxDriftDepth = 0.03;
+    const double driftRateHz = 1.0 / (58.0 + (double) layerIndex * 4.0);
     const double driftPhaseDelta = juce::MathConstants<double>::twoPi * driftRateHz / currentSampleRate;
+    auto naturalBipolarLfo = [] (double phase, double offset)
+    {
+        const auto a = std::sin(phase + offset);
+        const auto b = 0.35 * std::sin(phase * 2.0 + offset * 1.7);
+        const auto c = 0.18 * std::sin(phase * 3.0 + offset * 0.6);
+        return juce::jlimit(-1.0, 1.0, (a + b + c) / 1.53);
+    };
 
     const int srcChannels = layer.audio.getNumChannels();
     const int length = layer.audio.getNumSamples();
@@ -605,6 +784,48 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
 
     int xfadeSamples = (int) std::round(xfadeSeconds * currentSampleRate);
     xfadeSamples = juce::jlimit(0, std::max(0, length / 2 - 1), xfadeSamples);
+    const int autopilotFadeSamples = juce::jlimit(0, std::max(0, length / 3),
+        (int) std::round(juce::jmax(6.0f, xfadeSeconds) * currentSampleRate));
+
+    auto jumpSkippedRegion = [&layer, length, xfadeSamples] () -> bool
+    {
+        bool jumped = false;
+        for (int guard = 0; guard < maxSkipRanges; ++guard)
+        {
+            while (layer.position >= length) layer.position -= length;
+            while (layer.position < 0.0) layer.position += length;
+
+            const auto fraction = layer.position / (double) juce::jmax(1, length - 1);
+            bool jumpedThisPass = false;
+            const int count = juce::jlimit(0, maxSkipRanges, layer.skipRangeCount.load(std::memory_order_relaxed));
+            for (int i = 0; i < count; ++i)
+            {
+                const auto start = layer.skipStartFractions[(size_t) i].load(std::memory_order_relaxed);
+                const auto end = layer.skipEndFractions[(size_t) i].load(std::memory_order_relaxed);
+                if (end <= start + 0.001)
+                    continue;
+
+                if (fraction >= start && fraction < end)
+                {
+                    const int startSample = juce::jlimit(0, length - 1,
+                        (int) std::round(start * (double) juce::jmax(1, length - 1)));
+                    const int endSample = juce::jlimit(0, length - 1,
+                        (int) std::round(end * (double) juce::jmax(1, length - 1)));
+                    const int fadeLen = juce::jlimit(0, juce::jmax(0, startSample), xfadeSamples);
+                    layer.position = (double) (endSample + fadeLen);
+                    while (layer.position >= length) layer.position -= length;
+                    jumped = true;
+                    jumpedThisPass = true;
+                    break;
+                }
+            }
+
+            if (! jumpedThisPass)
+                break;
+        }
+
+        return jumped;
+    };
 
     auto* outL = output.getWritePointer(0);
     auto* outR = output.getWritePointer(1);
@@ -613,18 +834,17 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
     double displayPositionSamples = layer.displayPositionSamples.load(std::memory_order_relaxed);
     float layerPeak = 0.0f;
 
-    for (int n = 0; n < numSamples; ++n)
+    auto readSourceAt = [srcL, srcR, length, xfadeSamples] (int sampleIndex, float& left, float& right)
     {
-        int p = (int) layer.position;
-        while (p >= length) p -= length;
-        while (p < 0) p += length;
+        while (sampleIndex >= length) sampleIndex -= length;
+        while (sampleIndex < 0) sampleIndex += length;
 
-        float left = srcL[p];
-        float right = srcR != nullptr ? srcR[p] : left;
+        left = srcL[sampleIndex];
+        right = srcR != nullptr ? srcR[sampleIndex] : left;
 
-        if (xfadeSamples > 0 && p >= length - xfadeSamples)
+        if (xfadeSamples > 0 && sampleIndex >= length - xfadeSamples)
         {
-            const int crossIndex = p - (length - xfadeSamples);
+            const int crossIndex = sampleIndex - (length - xfadeSamples);
             const float t = (float) crossIndex / (float) xfadeSamples;
             const float fadeOut = std::cos(t * juce::MathConstants<float>::halfPi);
             const float fadeIn = std::sin(t * juce::MathConstants<float>::halfPi);
@@ -634,6 +854,143 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             const float startRight = srcR != nullptr ? srcR[q] : srcL[q];
             right = right * fadeOut + startRight * fadeIn;
         }
+    };
+
+    struct SkipBlend
+    {
+        bool active = false;
+        int targetSample = 0;
+        float amount = 0.0f;
+    };
+
+    auto findSkipBlend = [&layer, length, xfadeSamples] (int sampleIndex) -> SkipBlend
+    {
+        if (xfadeSamples <= 0)
+            return {};
+
+        while (sampleIndex >= length) sampleIndex -= length;
+        while (sampleIndex < 0) sampleIndex += length;
+
+        const int count = juce::jlimit(0, maxSkipRanges, layer.skipRangeCount.load(std::memory_order_relaxed));
+        for (int i = 0; i < count; ++i)
+        {
+            const auto start = layer.skipStartFractions[(size_t) i].load(std::memory_order_relaxed);
+            const auto end = layer.skipEndFractions[(size_t) i].load(std::memory_order_relaxed);
+            if (end <= start + 0.001)
+                continue;
+
+            const int startSample = juce::jlimit(0, length - 1,
+                (int) std::round(start * (double) juce::jmax(1, length - 1)));
+            const int endSample = juce::jlimit(0, length - 1,
+                (int) std::round(end * (double) juce::jmax(1, length - 1)));
+            if (endSample <= startSample + 1)
+                continue;
+
+            const int fadeLen = juce::jlimit(0, juce::jmax(0, startSample), xfadeSamples);
+            if (fadeLen <= 0)
+                continue;
+
+            const int fadeStart = startSample - fadeLen;
+            if (sampleIndex >= fadeStart && sampleIndex < startSample)
+            {
+                const int crossIndex = sampleIndex - fadeStart;
+                int target = endSample + crossIndex;
+                while (target >= length) target -= length;
+                return { true, target, (float) crossIndex / (float) fadeLen };
+            }
+        }
+
+        return {};
+    };
+
+    for (int n = 0; n < numSamples; ++n)
+    {
+        const bool autopilotBlending = autopilotOn
+            && layer.autopilotBlendSamplesRemaining > 0
+            && layer.autopilotBlendSamplesTotal > 0;
+
+        float effectiveSpeedKhz = speedKhz;
+        float effectiveLp = lp;
+        if (autopilotOn)
+        {
+            const auto speedShape = (float) naturalBipolarLfo(layer.driftPhase, (double) layerIndex * 0.43);
+            effectiveSpeedKhz = juce::jlimit(43.0f, 55.0f, 49.0f + 6.0f * speedShape);
+
+            const auto lpShape = (float) naturalBipolarLfo(layer.driftPhase, 1.3 + (double) layerIndex * 0.21);
+            effectiveLp = juce::jmin(lp, juce::jlimit(8000.0f, 12000.0f,
+                10000.0f + 2000.0f * lpShape));
+        }
+
+        if (driftPercent > 0.0f)
+        {
+            const auto driftAmount = std::pow((double) juce::jlimit(0.0f, 100.0f, driftPercent) / 100.0, 1.15);
+            const auto driftDepthKhz = (float) (6.0 * driftAmount);
+            const auto driftShape = (float) naturalBipolarLfo(layer.driftPhase, 2.1 + (double) layerIndex * 0.37);
+            effectiveSpeedKhz = juce::jlimit(38.0f, 55.0f, effectiveSpeedKhz + driftDepthKhz * driftShape);
+        }
+
+        const double playbackRatio = juce::jmax(0.01, 48.0 / (double) juce::jmax(1.0f, effectiveSpeedKhz));
+
+        if (autopilotOn && ! autopilotBlending)
+        {
+            layer.autopilotNextJumpSamples -= 1.0;
+            if (layer.autopilotNextJumpSamples <= 0.0 && autopilotFadeSamples > 0)
+            {
+                layer.autopilotBlendSourcePosition = layer.position;
+                layer.autopilotBlendTargetPosition = (double) chooseAutopilotTargetSample(layer, length);
+                layer.autopilotBlendSamplesTotal = autopilotFadeSamples;
+                layer.autopilotBlendSamplesRemaining = autopilotFadeSamples;
+            }
+        }
+        else if (! autopilotOn)
+        {
+            layer.autopilotBlendSamplesRemaining = 0;
+            layer.autopilotBlendSamplesTotal = 0;
+            scheduleAutopilotJump(layer);
+        }
+
+        const bool blendingNow = autopilotOn
+            && layer.autopilotBlendSamplesRemaining > 0
+            && layer.autopilotBlendSamplesTotal > 0;
+
+        if (! blendingNow && jumpSkippedRegion())
+            displayPositionSamples = layer.position;
+
+        int p = (int) (blendingNow ? layer.autopilotBlendSourcePosition : layer.position);
+        while (p >= length) p -= length;
+        while (p < 0) p += length;
+
+        float left = 0.0f;
+        float right = 0.0f;
+        readSourceAt(p, left, right);
+        if (! blendingNow)
+        {
+            if (const auto skipBlend = findSkipBlend(p); skipBlend.active)
+            {
+                float targetLeft = 0.0f;
+                float targetRight = 0.0f;
+                readSourceAt(skipBlend.targetSample, targetLeft, targetRight);
+                const float t = juce::jlimit(0.0f, 1.0f, skipBlend.amount);
+                const float fadeOut = std::cos(t * juce::MathConstants<float>::halfPi);
+                const float fadeIn = std::sin(t * juce::MathConstants<float>::halfPi);
+                left = left * fadeOut + targetLeft * fadeIn;
+                right = right * fadeOut + targetRight * fadeIn;
+            }
+        }
+
+        if (blendingNow)
+        {
+            float targetLeft = 0.0f;
+            float targetRight = 0.0f;
+            readSourceAt((int) layer.autopilotBlendTargetPosition, targetLeft, targetRight);
+
+            const int completed = layer.autopilotBlendSamplesTotal - layer.autopilotBlendSamplesRemaining;
+            const float t = juce::jlimit(0.0f, 1.0f, (float) completed / (float) juce::jmax(1, layer.autopilotBlendSamplesTotal));
+            const float fadeOut = std::cos(t * juce::MathConstants<float>::halfPi);
+            const float fadeIn = std::sin(t * juce::MathConstants<float>::halfPi);
+            left = left * fadeOut + targetLeft * fadeIn;
+            right = right * fadeOut + targetRight * fadeIn;
+        }
 
         if (hp > 20.5f)
         {
@@ -641,10 +998,10 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             right = layer.hp[1].processHighPass(right, hp, currentSampleRate);
         }
 
-        if (lp < 19999.0f)
+        if (effectiveLp < 19999.0f)
         {
-            left = layer.lp[0].processLowPass(left, lp, currentSampleRate);
-            right = layer.lp[1].processLowPass(right, lp, currentSampleRate);
+            left = layer.lp[0].processLowPass(left, effectiveLp, currentSampleRate);
+            right = layer.lp[1].processLowPass(right, effectiveLp, currentSampleRate);
         }
 
         if (srcChannels > 1)
@@ -656,6 +1013,24 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             right = mid - side;
         }
 
+        float panXFade = panXFadePercent * 0.01f;
+        if (autopilotOn)
+            panXFade = juce::jlimit(0.0f, 1.0f, panXFade + 0.10f * (0.5f + 0.5f * (float) std::sin(layer.autopilotPanPhase + 0.9)));
+
+        if (srcChannels > 1 && panXFade > 0.0001f)
+        {
+            const float angle = panXFade * juce::MathConstants<float>::halfPi;
+            const float direct = std::cos(angle);
+            const float swapped = std::sin(angle);
+            const float inL = left;
+            const float inR = right;
+            left = inL * direct + inR * swapped;
+            right = inR * direct + inL * swapped;
+            const float norm = 1.0f / juce::jmax(1.0f, direct + swapped);
+            left *= norm;
+            right *= norm;
+        }
+
         if (srcChannels == 1)
         {
             float effectivePan = pan;
@@ -663,6 +1038,11 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
             {
                 effectivePan = juce::jlimit(-1.0f, 1.0f,
                     pan + (float) std::sin(layer.autoPanPhase) * autoPanAmount);
+            }
+            if (autopilotOn)
+            {
+                effectivePan = juce::jlimit(-1.0f, 1.0f,
+                    effectivePan + (float) std::sin(layer.autopilotPanPhase) * 0.035f);
             }
 
             const float angle = (effectivePan + 1.0f) * juce::MathConstants<float>::halfPi * 0.5f;
@@ -682,6 +1062,11 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
                 effectivePan = juce::jlimit(-1.0f, 1.0f,
                     pan + (float) std::sin(layer.autoPanPhase) * autoPanAmount);
             }
+            if (autopilotOn)
+            {
+                effectivePan = juce::jlimit(-1.0f, 1.0f,
+                    effectivePan + (float) std::sin(layer.autopilotPanPhase) * 0.035f);
+            }
 
             const float lg = effectivePan <= 0.0f ? 1.0f : 1.0f - effectivePan;
             const float rg = effectivePan >= 0.0f ? 1.0f : 1.0f + effectivePan;
@@ -699,23 +1084,49 @@ void SceneLooperAudioProcessor::renderLayer(Layer& layer, int layerIndex, juce::
                 layer.autoPanPhase -= juce::MathConstants<double>::twoPi;
         }
 
-        const double drift = driftPercent > 0.0f
-            ? std::sin(layer.driftPhase) * maxDriftDepth * ((double) driftPercent / 100.0)
-            : 0.0;
-        const double playbackRatio = juce::jmax(0.01, ((double) speedKhz / 48.0) * (1.0 + drift));
+        if (autopilotOn)
+        {
+            layer.autopilotPanPhase += juce::MathConstants<double>::twoPi * layer.autopilotPanRateHz / currentSampleRate;
+            if (layer.autopilotPanPhase >= juce::MathConstants<double>::twoPi)
+                layer.autopilotPanPhase -= juce::MathConstants<double>::twoPi;
+        }
 
-        if (driftPercent > 0.0f)
+        if (driftPercent > 0.0f || autopilotOn)
         {
             layer.driftPhase += driftPhaseDelta;
             if (layer.driftPhase >= juce::MathConstants<double>::twoPi)
                 layer.driftPhase -= juce::MathConstants<double>::twoPi;
         }
 
-        layer.position += playbackRatio;
-        if (layer.position >= length)
-            layer.position = (double) xfadeSamples + std::fmod(layer.position - (double) xfadeSamples, (double) juce::jmax(1, length - xfadeSamples));
+        if (blendingNow)
+        {
+            layer.autopilotBlendSourcePosition += playbackRatio;
+            layer.autopilotBlendTargetPosition += playbackRatio;
+            while (layer.autopilotBlendSourcePosition >= length) layer.autopilotBlendSourcePosition -= length;
+            while (layer.autopilotBlendTargetPosition >= length) layer.autopilotBlendTargetPosition -= length;
 
-        displayPositionSamples += playbackRatio;
+            --layer.autopilotBlendSamplesRemaining;
+            displayPositionSamples = layer.autopilotBlendTargetPosition;
+
+            if (layer.autopilotBlendSamplesRemaining <= 0)
+            {
+                layer.position = layer.autopilotBlendTargetPosition;
+                layer.autopilotBlendSamplesTotal = 0;
+                scheduleAutopilotJump(layer);
+            }
+        }
+        else
+        {
+            layer.position += playbackRatio;
+            if (layer.position >= length)
+                layer.position = (double) xfadeSamples + std::fmod(layer.position - (double) xfadeSamples, (double) juce::jmax(1, length - xfadeSamples));
+
+            if (jumpSkippedRegion())
+                displayPositionSamples = layer.position;
+
+            displayPositionSamples += playbackRatio;
+        }
+
         if (displayPositionSamples >= length)
             displayPositionSamples = std::fmod(displayPositionSamples, (double) length);
     }
@@ -800,6 +1211,8 @@ void SceneLooperAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
         auto fileNode = juce::ValueTree("LAYER");
         fileNode.setProperty("index", i, nullptr);
         fileNode.setProperty("path", layers[i].file.getFullPathName(), nullptr);
+        fileNode.setProperty("skipRanges", encodeLayerSkipRanges(i), nullptr);
+        fileNode.setProperty("autopilotOn", getParameterValue(paramId(i, "autopilotOn")) > 0.5f, nullptr);
         files.addChild(fileNode, -1, nullptr);
     }
     state.addChild(files, -1, nullptr);
@@ -840,14 +1253,19 @@ void SceneLooperAudioProcessor::setStateInformation(const void* data, int sizeIn
         auto node = files.getChild(c);
         const int index = (int) node.getProperty("index", -1);
         const juce::File file(node.getProperty("path", {}).toString());
+        const auto skipRanges = node.getProperty("skipRanges", {}).toString();
+        if (node.hasProperty("autopilotOn"))
+            setParameterValue(paramId(index, "autopilotOn"), (bool) node.getProperty("autopilotOn") ? 1.0f : 0.0f);
         if (juce::isPositiveAndBelow(index, numLayers) && file.existsAsFile())
         {
             juce::String error;
             loadFileForLayer(index, file, error);
+            restoreLayerSkipRangesFromString(index, skipRanges);
         }
         else if (juce::isPositiveAndBelow(index, numLayers) && file.getFullPathName().isNotEmpty())
         {
             markLayerMissingFile(index, file);
+            restoreLayerSkipRangesFromString(index, skipRanges);
         }
     }
 

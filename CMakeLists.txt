@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(SceneLooper VERSION 0.9.0)
+project(SceneLooper VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,20 +44,13 @@ juce_add_plugin(SceneLooper
     COPY_PLUGIN_AFTER_BUILD TRUE
     PLUGIN_MANUFACTURER_CODE Sclp
     PLUGIN_CODE Slp1
-    FORMATS VST3
+    FORMATS VST3 AU AAX
     PRODUCT_NAME "Atmocycle")
 
 target_sources(SceneLooper
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp)
-
-if(APPLE)
-    add_custom_command(TARGET SceneLooper_VST3 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "$<TARGET_BUNDLE_DIR:SceneLooper_VST3>"
-            "$<TARGET_BUNDLE_DIR:SceneLooper_VST3>/../SceneLooper.vst3")
-endif()
 
 target_compile_definitions(SceneLooper
     PUBLIC

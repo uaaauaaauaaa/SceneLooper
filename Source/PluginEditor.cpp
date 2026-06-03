@@ -1,6 +1,8 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <initializer_list>
 
@@ -22,8 +24,8 @@ const juce::Colour valueText { 0xffbeb1a8 };
 
 constexpr int designWidth = 1672;
 constexpr int designHeight = 941;
-constexpr int editorWidth = 1208;
-constexpr int editorHeight = 680;
+constexpr int editorWidth = 1360;
+constexpr int editorHeight = 765;
 constexpr float scaleX = (float) editorWidth / (float) designWidth;
 constexpr float scaleY = (float) editorHeight / (float) designHeight;
 
@@ -80,7 +82,7 @@ int scaledY(float value)
 
 float scaledFont(float value)
 {
-    return value * Theme::scaleY;
+    return value * Theme::scaleY * 1.16f;
 }
 
 juce::Rectangle<int> scaledBounds(float x, float y, float width, float height)
@@ -224,8 +226,11 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
     g.setColour(accent.withAlpha(highlighted ? 0.48f : 0.25f));
     g.drawRoundedRectangle(area.reduced(1.0f), radius, highlighted ? 1.15f : 0.75f);
 
-    const auto iconSize = juce::jmin(area.getHeight() * 0.36f, area.getWidth() * 0.20f);
-    const auto icon = juce::Rectangle<float>(area.getX() + area.getWidth() * 0.16f,
+    const auto iconSize = juce::jmin(area.getHeight() * 0.34f, area.getWidth() * 0.18f);
+    const auto textWidth = scaledX(save ? 74.0f : 80.0f);
+    const auto gap = scaledX(8.0f);
+    const auto groupWidth = iconSize * 1.22f + gap + textWidth;
+    const auto icon = juce::Rectangle<float>(area.getCentreX() - groupWidth * 0.5f + scaledX(3.0f),
                                              area.getCentreY() - iconSize * 0.5f,
                                              iconSize * 1.22f,
                                              iconSize);
@@ -236,8 +241,11 @@ void drawTopButtonContent(juce::Graphics& g, juce::Rectangle<int> bounds, const 
         drawFolderIcon(g, icon, accent);
 
     g.setColour(Theme::labelText.withAlpha(highlighted ? 0.96f : 0.84f));
-    g.setFont(juce::Font("Avenir Next", scaledFont(14.2f), juce::Font::plain));
-    g.drawFittedText(text, bounds.withTrimmedLeft(scaledX(50)).reduced(scaledX(4), 0),
+    g.setFont(juce::Font("Avenir Next", scaledFont(13.4f), juce::Font::plain));
+    g.drawFittedText(text, juce::Rectangle<int>((int) std::round(icon.getRight() + gap),
+                                                bounds.getY(),
+                                                (int) std::round(textWidth),
+                                                bounds.getHeight()),
                      juce::Justification::centredLeft, 1);
 }
 
@@ -303,12 +311,66 @@ juce::String sliderValueText(juce::Slider& slider)
     return slider.getTextFromValue(slider.getValue());
 }
 
-juce::String levelToDbText(float level)
+juce::String levelToDbNumberText(float level)
 {
     if (level <= 0.00001f)
-        return "-inf dB";
+        return "-inf";
 
-    return juce::String(juce::Decibels::gainToDecibels(level), 1) + " dB";
+    return juce::String(juce::Decibels::gainToDecibels(level), 1);
+}
+
+juce::String decimalText(double value, int places = 2)
+{
+    return juce::String(value, places);
+}
+
+juce::String panText(double value)
+{
+    if (std::abs(value) > 1.0)
+        value *= 0.001;
+
+    value = juce::jlimit(-1.0, 1.0, value);
+    if (std::abs(value) < 0.01)
+        return "C";
+
+    return juce::String(value < 0.0 ? "L" : "R") + juce::String((int) std::round(std::abs(value) * 100.0));
+}
+
+void drawSubtleStructure(juce::Graphics& g)
+{
+    const auto veil = juce::Colour(0xff001014);
+    const auto line = juce::Colour(0xff1d7b86);
+
+    auto drawLine = [&g, line] (float x1, float y1, float x2, float y2, float alpha = 0.095f)
+    {
+        g.setColour(line.withAlpha(alpha));
+        g.drawLine(scaledX(x1), scaledY(y1), scaledX(x2), scaledY(y2), juce::jmax(0.45f, Theme::scaleY * 0.75f));
+    };
+
+    g.setColour(veil.withAlpha(0.18f));
+    g.fillRoundedRectangle(scaledBoundsF(82.0f, 280.0f, 1572.0f, 560.0f), scaledY(4.0f));
+
+    for (int i = 0; i <= 8; ++i)
+        drawLine(82.0f, 280.0f + (float) i * 70.0f, 1654.0f, 280.0f + (float) i * 70.0f, i == 0 ? 0.12f : 0.075f);
+
+    const std::array<float, 16> layerColumns {
+        98.0f, 522.0f, 626.0f, 786.0f, 865.8f, 945.6f, 1025.5f,
+        1105.3f, 1185.1f, 1264.9f, 1344.7f, 1424.5f, 1504.4f, 1584.2f,
+        1648.0f, 1654.0f
+    };
+
+    for (auto x : layerColumns)
+        drawLine(x, 280.0f, x, 840.0f, 0.070f);
+
+    g.setColour(veil.withAlpha(0.12f));
+    g.fillRoundedRectangle(scaledBoundsF(16.0f, 115.0f, 1640.0f, 111.0f), scaledY(7.0f));
+    for (float x : { 426.0f, 836.0f, 1246.0f })
+        drawLine(x, 142.0f, x, 199.0f, 0.040f);
+
+    g.setColour(veil.withAlpha(0.16f));
+    g.fillRoundedRectangle(scaledBoundsF(16.0f, 844.0f, 1640.0f, 92.0f), scaledY(6.0f));
+    for (float x : { 300.0f, 535.0f, 980.0f })
+        drawLine(x, 855.0f, x, 921.0f, 0.085f);
 }
 
 juce::String formatTime(double seconds, bool countdown)
@@ -470,8 +532,8 @@ public:
         if (button.getButtonText().equalsIgnoreCase("Load"))
         {
             const auto active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
-            const auto radius = 5.0f;
-            const auto accent = Theme::purple.interpolatedWith(Theme::cyan, 0.25f);
+            const auto radius = scaledY(4.5f);
+            const auto accent = Theme::purple.interpolatedWith(Theme::cyan, 0.16f);
 
             g.setColour(juce::Colours::black.withAlpha(0.22f));
             g.fillRoundedRectangle(bounds.translated(0.0f, 1.0f), radius);
@@ -485,10 +547,10 @@ public:
 
             g.setColour(juce::Colours::white.withAlpha(active ? 0.08f : 0.04f));
             g.fillRoundedRectangle(bounds.reduced(1.5f).withTrimmedBottom(bounds.getHeight() * 0.58f), radius - 1.2f);
-            g.setColour(accent.withAlpha(active ? 0.50f : 0.28f));
+            g.setColour(accent.withAlpha(active ? 0.42f : 0.22f));
             g.drawRoundedRectangle(bounds, radius, active ? 1.05f : 0.8f);
             g.setColour(Theme::text.withAlpha(active ? 0.92f : 0.78f));
-            g.setFont(juce::Font(9.8f, juce::Font::plain));
+            g.setFont(juce::Font("Avenir Next", scaledFont(10.0f), juce::Font::plain));
             g.drawFittedText("LOAD", button.getLocalBounds().reduced(5, 2), juce::Justification::centred, 1);
             return;
         }
@@ -588,22 +650,48 @@ public:
 
         if (button.getButtonText() == "AP")
         {
-            auto box = bounds.withSizeKeepingCentre(24.0f, 24.0f);
+            auto box = bounds.withSizeKeepingCentre(26.0f, 26.0f);
             drawButtonShell(box);
 
             juce::Path wave;
-            const auto waveArea = box.reduced(5.3f, 8.0f);
-            for (int i = 0; i < 24; ++i)
+            const auto waveArea = box.reduced(5.0f, 7.0f);
+            for (int i = 0; i < 32; ++i)
             {
-                const float t = (float) i / 23.0f;
+                const float t = (float) i / 31.0f;
                 const float xx = waveArea.getX() + t * waveArea.getWidth();
-                const float yy = waveArea.getCentreY() + std::sin(t * juce::MathConstants<float>::twoPi) * waveArea.getHeight() * 0.36f;
+                const float yy = waveArea.getCentreY() + std::sin((t - 0.08f) * juce::MathConstants<float>::twoPi) * waveArea.getHeight() * 0.46f;
                 if (i == 0)
                     wave.startNewSubPath(xx, yy);
                 else
                     wave.lineTo(xx, yy);
             }
-            drawGlowingPath(wave, 1.9f);
+            if (on)
+            {
+                g.setColour(Theme::purple.withAlpha(0.22f));
+                g.strokePath(wave, juce::PathStrokeType(5.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+            drawGlowingPath(wave, 2.35f);
+            return;
+        }
+
+        if (button.getButtonText() == "AUTO")
+        {
+            auto box = bounds.withSizeKeepingCentre(28.0f, 24.0f);
+            drawButtonShell(box);
+
+            const auto blink = on ? 0.55f + 0.35f * (float) std::sin(juce::Time::getMillisecondCounterHiRes() * 0.007) : 0.0f;
+            if (on)
+            {
+                const auto red = juce::Colour(0xffd12a55);
+                g.setColour(red.withAlpha(0.20f + blink * 0.25f));
+                g.fillRoundedRectangle(box.reduced(2.0f), 4.2f);
+                g.setColour(red.withAlpha(0.35f + blink * 0.35f));
+                g.drawRoundedRectangle(box.expanded(1.4f), 6.0f, 1.0f);
+            }
+
+            g.setColour((on ? juce::Colour(0xffff6d83) : Theme::mutedText).withAlpha(on ? 0.98f : 0.52f));
+            g.setFont(juce::Font("Avenir Next", 8.0f, juce::Font::bold));
+            g.drawFittedText("AUTO", box.toNearestInt().reduced(2), juce::Justification::centred, 1);
             return;
         }
 
@@ -629,7 +717,7 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
 {
     lookAndFeel = std::make_unique<AtmocycleLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
-    tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 850);
+    tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 1100);
 
     setResizable(false, false);
     setResizeLimits(Theme::editorWidth, Theme::editorHeight, Theme::editorWidth, Theme::editorHeight);
@@ -676,8 +764,36 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     addAndMakeVisible(sceneNameLabel);
     addAndMakeVisible(saveSceneButton);
     addAndMakeVisible(loadSceneButton);
-    loadSceneButton.setTooltip("Load Scene: open a saved Atmocycle scene file.");
-    saveSceneButton.setTooltip("Save Scene: save the current layer setup as a scene file.");
+    addAndMakeVisible(versionButton);
+    makeHitZoneOnly(versionButton);
+    loadSceneButton.setTooltip("Load scene");
+    saveSceneButton.setTooltip("Save scene");
+    versionButton.setTooltip("Show Atmocycle version");
+    versionButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+
+    const char* headerTooltips[] = {
+        "Load, solo and auto-pan controls for the layer.",
+        "Layer volume in decibels.",
+        "Stereo position: left, centre or right.",
+        "How strongly auto-pan moves the sound. The small wave/S-shaped AP button enables auto-pan.",
+        "Auto-pan movement speed. The small wave/S-shaped AP button enables auto-pan.",
+        "Playback-rate resampling amount. Lower kHz is faster/higher, higher kHz is slower/lower.",
+        "Subtle random pitch/playback movement.",
+        "Stereo width.",
+        "Pan XFade smoothly crossmixes left and right channels without polarity inversion.",
+        "Start position offset in seconds.",
+        "High-pass filter cutoff.",
+        "Low-pass filter cutoff.",
+        "Layer loop and skip crossfade time.",
+        "Click-drag seeks; Cmd/Ctrl-drag creates skip zones."
+    };
+    for (size_t i = 0; i < headerTooltipZones.size(); ++i)
+    {
+        headerTooltipZones[i].setText({}, juce::dontSendNotification);
+        headerTooltipZones[i].setTooltip(headerTooltips[i]);
+        headerTooltipZones[i].setAlpha(0.01f);
+        addAndMakeVisible(headerTooltipZones[i]);
+    }
 
     auto setupMacro = [] (juce::Slider& s, const juce::String& suffix)
     {
@@ -731,7 +847,14 @@ SceneLooperAudioProcessorEditor::SceneLooperAudioProcessorEditor(SceneLooperAudi
     {
         processor.randomizeLayerStarts();
     };
-    randomizeButton.setTooltip("Randomization: randomize layer start positions using the Random Start amount.");
+    randomizeButton.setTooltip("Randomize starts");
+
+    versionButton.onClick = []
+    {
+        const auto message = juce::String("Atmocycle v") + JucePlugin_VersionString
+                           + "\nBuild: " + __DATE__ + " " + __TIME__;
+        juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Atmocycle", message);
+    };
 
     saveSceneButton.onClick = [this]
     {
@@ -823,6 +946,7 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
     if (figmaUi.isValid())
     {
         g.drawImage(figmaUi, getLocalBounds().toFloat(), juce::RectanglePlacement::stretchToFit, false);
+        drawSubtleStructure(g);
         return;
     }
 
@@ -835,118 +959,187 @@ void SceneLooperAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SceneLooperAudioProcessorEditor::paintOverChildren(juce::Graphics& g)
 {
-    drawTrackedText(g, scaledBoundsF(132.0f, 18.0f, 300.0f, 35.0f), "Atmocycle", scaledFont(30.0f),
-                    juce::Justification::centredLeft, scaledX(1.6f), juce::Colour(0xffddd7cf), true);
-    drawTrackedText(g, scaledBoundsF(132.0f, 50.0f, 220.0f, 18.0f), "by Echosynthesis", scaledFont(11.0f),
-                    juce::Justification::centredLeft, scaledX(1.9f), Theme::labelText.withAlpha(0.86f), true);
-    drawTrackedText(g, scaledBoundsF(132.0f, 75.0f, 305.0f, 18.0f), "MULTI-LAYER AMBIENCE PLAYER", scaledFont(10.6f),
-                    juce::Justification::centredLeft, scaledX(2.0f), Theme::purple.withAlpha(0.88f), true);
+    drawTrackedText(g, scaledBoundsF(132.0f, 18.0f, 390.0f, 48.0f), "Atmocycle", scaledFont(39.0f),
+                    juce::Justification::centredLeft, scaledX(1.10f), juce::Colour(0xffddd7cf), true);
+    drawTrackedText(g, scaledBoundsF(132.0f, 64.0f, 305.0f, 24.0f), "by Echosynthesis", scaledFont(17.0f),
+                    juce::Justification::centredLeft, scaledX(1.30f), Theme::labelText.withAlpha(0.91f), true);
 
-    drawUiLabel(g, scaledBoundsF(728.0f, 13.0f, 70.0f, 17.0f), "SCENE", scaledFont(11.4f));
-    drawTopButtonContent(g, scaledBounds(986.0f, 31.0f, 128.0f, 53.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
-    drawTopButtonContent(g, scaledBounds(1147.0f, 31.0f, 128.0f, 53.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
+    drawTopButtonContent(g, scaledBounds(774.0f, 31.0f, 126.0f, 52.0f), "LOAD SCENE", false, loadSceneButton.isMouseOver());
+    drawTopButtonContent(g, scaledBounds(914.0f, 31.0f, 126.0f, 52.0f), "SAVE SCENE", true, saveSceneButton.isMouseOver());
+
+    const auto legendText = juce::String("AUTO BUTTON = AUTOPILOT: RANDOM STARTS, SKIP-ZONE JUMPS, XFADE BLENDS\n")
+                          + "CMD/CTRL+DRAG WAVEFORM = SKIP AREA   S-SHAPED AP BUTTON = AUTO PAN   PAN XFADE = SAFE L/R CROSSMIX";
+    g.setColour(Theme::labelText.withAlpha(0.64f));
+    g.setFont(juce::Font("Avenir Next", scaledFont(10.4f), juce::Font::plain));
+    g.drawFittedText(legendText, scaledBounds(1083.0f, 28.0f, 560.0f, 54.0f),
+                     juce::Justification::centredLeft, 2);
 
     const auto sceneName = processor.getCurrentSceneName() == "Untitled Scene"
                                ? juce::String("Project State")
                                : processor.getCurrentSceneName();
+    const auto sceneDisplay = juce::String("Scene Name: ") + sceneName;
 
     g.setColour(Theme::valueText.withAlpha(0.90f));
-    g.setFont(juce::Font("Avenir Next", scaledFont(15.0f), juce::Font::plain));
-    g.drawFittedText(sceneName, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
+    g.setFont(juce::Font("Avenir Next", scaledFont(14.4f), juce::Font::plain));
+    const auto sceneField = sceneNameLabel.getBounds().toFloat().reduced(1.0f);
+    g.setColour((processor.getCurrentSceneName() == "Untitled Scene" ? Theme::stroke : Theme::purple).withAlpha(0.22f));
+    g.drawRoundedRectangle(sceneField, scaledY(6.0f), scaledY(0.85f));
+    g.setColour(Theme::valueText.withAlpha(0.90f));
+    g.drawFittedText(sceneDisplay, sceneNameLabel.getBounds(), juce::Justification::centred, 1);
 
-    drawUiLabel(g, scaledBoundsF(160.0f, 139.0f, 190.0f, 21.0f), "MASTER OUTPUT", scaledFont(14.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(568.0f, 139.0f, 205.0f, 21.0f), "GLOBAL CROSSFADE", scaledFont(14.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(972.0f, 139.0f, 198.0f, 21.0f), "MASTER LOW CUT", scaledFont(14.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(1390.0f, 139.0f, 210.0f, 21.0f), "MASTER HIGH CUT", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(176.0f, 143.0f, 190.0f, 21.0f), "MASTER OUTPUT", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(586.0f, 143.0f, 205.0f, 21.0f), "GLOBAL CROSSFADE", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(996.0f, 143.0f, 198.0f, 21.0f), "MASTER LOW CUT", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(1406.0f, 143.0f, 210.0f, 21.0f), "MASTER HIGH CUT", scaledFont(14.0f), juce::Justification::centredLeft);
 
     drawUiLabel(g, scaledBoundsF(31.0f, 245.0f, 70.0f, 22.0f), "LAYER", scaledFont(12.2f), juce::Justification::centredLeft);
     drawUiLabel(g, scaledBoundsF(128.0f, 245.0f, 180.0f, 22.0f), "FILE / LOOP", scaledFont(12.2f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(395.0f, 245.0f, 100.0f, 22.0f), "CONTROL", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(580.0f, 245.0f, 85.0f, 22.0f), "VOLUME", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(728.0f, 245.0f, 60.0f, 22.0f), "PAN", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(823.0f, 237.0f, 90.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(823.0f, 253.0f, 90.0f, 16.0f), "AMOUNT", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(925.0f, 237.0f, 85.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(925.0f, 253.0f, 85.0f, 16.0f), "RATE", scaledFont(11.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1025.0f, 245.0f, 70.0f, 22.0f), "SPEED", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1120.0f, 245.0f, 65.0f, 22.0f), "DRIFT", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1210.0f, 245.0f, 70.0f, 22.0f), "WIDTH", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1298.0f, 245.0f, 115.0f, 22.0f), "START OFFSET", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1428.0f, 245.0f, 45.0f, 22.0f), "HP", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1508.0f, 245.0f, 45.0f, 22.0f), "LP", scaledFont(12.2f), juce::Justification::centred);
-    drawUiLabel(g, scaledBoundsF(1576.0f, 245.0f, 75.0f, 22.0f), "XFADE", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(522.0f, 245.0f, 104.0f, 22.0f), "CONTROL", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(626.0f, 245.0f, 160.0f, 22.0f), "VOLUME", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(796.0f, 245.0f, 60.0f, 22.0f), "PAN", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(865.5f, 237.0f, 80.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(865.5f, 253.0f, 80.0f, 16.0f), "AMOUNT", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(945.5f, 237.0f, 80.0f, 16.0f), "AUTO PAN", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(945.5f, 253.0f, 80.0f, 16.0f), "RATE", scaledFont(11.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1030.0f, 245.0f, 70.0f, 22.0f), "SPEED", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1110.0f, 245.0f, 70.0f, 22.0f), "DRIFT", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1190.0f, 245.0f, 70.0f, 22.0f), "WIDTH", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1269.5f, 237.0f, 70.0f, 16.0f), "PAN", scaledFont(10.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1269.5f, 253.0f, 70.0f, 16.0f), "XFADE", scaledFont(10.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1346.5f, 237.0f, 76.0f, 16.0f), "START", scaledFont(10.8f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1346.5f, 253.0f, 76.0f, 16.0f), "OFFSET", scaledFont(10.8f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1434.0f, 245.0f, 60.0f, 22.0f), "HP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1514.0f, 245.0f, 60.0f, 22.0f), "LP", scaledFont(12.2f), juce::Justification::centred);
+    drawUiLabel(g, scaledBoundsF(1594.0f, 245.0f, 60.0f, 22.0f), "XFADE", scaledFont(12.2f), juce::Justification::centred);
 
-    drawTextValue(g, scaledBounds(151, 167, 157, 43), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(563, 167, 157, 43), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(973, 167, 157, 43), sliderValueText(masterLowCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
-    drawTextValue(g, scaledBounds(1378, 167, 157, 43), sliderValueText(masterHighCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(166, 171, 157, 38), sliderValueText(masterSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(576, 171, 157, 38), sliderValueText(globalXFadeSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(986, 171, 157, 38), sliderValueText(masterLowCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(1396, 171, 157, 38), sliderValueText(masterHighCutSlider), scaledFont(15.2f), juce::Justification::centredLeft);
 
-    drawDiceIcon(g, scaledBoundsF(49.0f, 883.0f, 35.0f, 32.0f));
+    const auto randomShell = scaledBoundsF(42.0f, 858.0f, 218.0f, 70.0f);
+    if (randomizeButton.isMouseOver())
+    {
+        juce::ColourGradient fill(juce::Colour(0xff09242a).withAlpha(0.72f), randomShell.getX(), randomShell.getY(),
+                                  juce::Colour(0xff02080a).withAlpha(0.86f), randomShell.getRight(), randomShell.getBottom(), false);
+        g.setGradientFill(fill);
+        g.fillRoundedRectangle(randomShell, scaledY(7.0f));
+        g.setColour(Theme::cyan.withAlpha(0.34f));
+        g.drawRoundedRectangle(randomShell, scaledY(7.0f), scaledY(1.0f));
+    }
 
-    drawUiLabel(g, scaledBoundsF(92.0f, 883.0f, 170.0f, 28.0f), "RANDOMIZATION", scaledFont(12.0f), juce::Justification::centredLeft);
-    drawUiLabel(g, scaledBoundsF(350.0f, 855.0f, 145.0f, 20.0f), "RANDOM START", scaledFont(12.0f), juce::Justification::centredLeft);
+    drawDiceIcon(g, scaledBoundsF(45.0f, 872.0f, 48.0f, 44.0f));
+
+    drawUiLabel(g, scaledBoundsF(99.0f, 873.0f, 185.0f, 39.0f), "RANDOMIZATION", scaledFont(13.8f), juce::Justification::centredLeft);
+    drawUiLabel(g, scaledBoundsF(350.0f, 860.0f, 170.0f, 24.0f), "RANDOM START", scaledFont(14.0f), juce::Justification::centredLeft);
+    drawTextValue(g, scaledBounds(342, 883, 145, 38), sliderValueText(randomStartSlider), scaledFont(15.2f), juce::Justification::centredLeft);
     drawUiLabel(g, scaledBoundsF(596.0f, 855.0f, 165.0f, 20.0f), "MASTER METER", scaledFont(12.0f), juce::Justification::centredLeft);
-
-    drawTextValue(g, scaledBounds(337, 879, 127, 43), sliderValueText(randomStartSlider), scaledFont(13.8f), juce::Justification::centred);
 
     const auto masterLeft = juce::jlimit(0.0f, 1.0f, processor.getMasterLeftLevel());
     const auto masterRight = juce::jlimit(0.0f, 1.0f, processor.getMasterRightLevel());
-    auto ledArea = scaledBoundsF(596.0f, 878.0f, 326.0f, 25.0f);
-
-    constexpr int bars = 45;
-    auto drawMeterRow = [&g, &ledArea] (float level, float y, float h)
+    auto ledArea = scaledBoundsF(596.0f, 882.0f, 327.0f, 27.0f);
+    const auto masterPeak = juce::jmax(masterLeft, masterRight);
+    const auto peakDb = masterPeak > 0.000001f ? juce::Decibels::gainToDecibels(masterPeak) : -80.0f;
+    const int meterZoom = peakDb < -44.0f ? 0 : (peakDb < -24.0f ? 1 : (peakDb < -12.0f ? 2 : 3));
+    const float meterMinDb = meterZoom == 0 ? -60.0f : (meterZoom == 1 ? -48.0f : (meterZoom == 2 ? -36.0f : -24.0f));
+    const float meterMaxDb = meterZoom == 0 ? -40.0f : (meterZoom == 1 ? -24.0f : 0.0f);
+    const std::array<float, 8> scaleValues = [&]
     {
+        if (meterZoom == 0)
+            return std::array<float, 8> { -60.0f, -57.0f, -54.0f, -51.0f, -48.0f, -45.0f, -42.0f, -40.0f };
+        if (meterZoom == 1)
+            return std::array<float, 8> { -48.0f, -44.0f, -40.0f, -36.0f, -32.0f, -28.0f, -26.0f, -24.0f };
+        if (meterZoom == 2)
+            return std::array<float, 8> { -36.0f, -32.0f, -28.0f, -24.0f, -20.0f, -16.0f, -12.0f, 0.0f };
+        return std::array<float, 8> { -24.0f, -21.0f, -18.0f, -15.0f, -12.0f, -9.0f, -6.0f, 0.0f };
+    }();
+
+    constexpr int bars = 52;
+    auto zoomedMeterLevel = [meterMinDb, meterMaxDb] (float level)
+    {
+        if (level <= 0.000001f)
+            return 0.0f;
+
+        const auto db = juce::Decibels::gainToDecibels(level);
+        return juce::jmap(juce::jlimit(meterMinDb, meterMaxDb, db), meterMinDb, meterMaxDb, 0.0f, 1.0f);
+    };
+
+    auto drawMeterRow = [&g, &ledArea, &zoomedMeterLevel] (float level, float y, float h)
+    {
+        const auto shownLevel = zoomedMeterLevel(level);
         for (int i = 0; i < bars; ++i)
         {
             const float t = (float) i / (float) (bars - 1);
-            const bool active = t <= level;
+            const bool active = t <= shownLevel;
             const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
             const auto segmentWidth = ledArea.getWidth() / (float) bars;
             const auto x = ledArea.getX() + (float) i * segmentWidth;
-            g.setColour(active ? colour.withAlpha(0.54f) : juce::Colour(0xff0b2a30).withAlpha(0.10f));
-            g.fillRoundedRectangle(x, y, juce::jmax(2.4f, segmentWidth - 2.0f), h, 0.7f);
+            if (! active)
+                continue;
+
+            g.setColour(colour.withAlpha(0.31f));
+            g.fillRoundedRectangle(x, y, juce::jmax(1.9f, segmentWidth - 2.3f), h, 0.65f);
+            g.setColour(colour.withAlpha(0.13f));
+            g.fillRoundedRectangle(x - 0.35f, y - 0.45f, juce::jmax(2.2f, segmentWidth - 1.6f), h + 0.9f, 0.8f);
         }
     };
 
-    drawMeterRow(masterLeft, ledArea.getY() + scaledY(1.0f), scaledY(7.0f));
-    drawMeterRow(masterRight, ledArea.getY() + scaledY(12.0f), scaledY(7.0f));
+    drawMeterRow(masterLeft, ledArea.getY() + scaledY(0.0f), scaledY(5.7f));
+    drawMeterRow(masterRight, ledArea.getY() + scaledY(10.2f), scaledY(5.7f));
 
-    drawTextValue(g, scaledBounds(552, 879, 42, 24), levelToDbText(juce::jmax(masterLeft, masterRight)), scaledFont(12.7f), juce::Justification::centredRight);
-    drawUiLabel(g, scaledBoundsF(593.0f, 909.0f, 34.0f, 15.0f), "-60", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(644.0f, 909.0f, 34.0f, 15.0f), "-48", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(695.0f, 909.0f, 34.0f, 15.0f), "-36", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(746.0f, 909.0f, 34.0f, 15.0f), "-24", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(797.0f, 909.0f, 34.0f, 15.0f), "-18", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(848.0f, 909.0f, 34.0f, 15.0f), "-12", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(899.0f, 909.0f, 34.0f, 15.0f), "-6", scaledFont(10.2f));
-    drawUiLabel(g, scaledBoundsF(915.0f, 884.0f, 70.0f, 25.0f), "dB", scaledFont(12.8f), juce::Justification::centredRight);
+    drawTextValue(g, scaledBounds(908, 881, 86, 24), levelToDbNumberText(masterPeak) + " dB", scaledFont(12.4f), juce::Justification::centredRight);
+    for (int i = 0; i < 8; ++i)
+    {
+        const auto x = 593.0f + (float) i * 46.5f;
+        drawUiLabel(g, scaledBoundsF(x, 907.0f, 39.0f, 14.0f), juce::String((int) scaleValues[(size_t) i]), scaledFont(10.2f));
+    }
 }
 
 void SceneLooperAudioProcessorEditor::resized()
 {
-    titleLabel.setBounds(scaledBounds(132, 21, 240, 27));
-    bylineLabel.setBounds(scaledBounds(132, 51, 185, 17));
+    titleLabel.setBounds(scaledBounds(132, 22, 260, 30));
+    bylineLabel.setBounds(scaledBounds(132, 62, 210, 20));
     taglineLabel.setBounds(scaledBounds(132, 76, 260, 18));
+    versionButton.setBounds(scaledBounds(37, 15, 330, 78));
     sceneCaptionLabel.setBounds(scaledBounds(733, 13, 54, 18));
-    sceneNameLabel.setBounds(scaledBounds(520, 28, 436, 60));
-    loadSceneButton.setBounds(scaledBounds(986, 31, 128, 53));
-    saveSceneButton.setBounds(scaledBounds(1147, 31, 128, 53));
+    sceneNameLabel.setBounds(scaledBounds(500, 31, 260, 52));
+    loadSceneButton.setBounds(scaledBounds(774, 31, 126, 52));
+    saveSceneButton.setBounds(scaledBounds(914, 31, 126, 52));
 
-    masterLabel.setBounds(scaledBounds(162, 136, 150, 20));
-    globalXFadeLabel.setBounds(scaledBounds(545, 136, 174, 20));
-    masterLowCutLabel.setBounds(scaledBounds(944, 136, 160, 20));
-    masterHighCutLabel.setBounds(scaledBounds(1330, 136, 160, 20));
+    masterLabel.setBounds(scaledBounds(176, 140, 150, 20));
+    globalXFadeLabel.setBounds(scaledBounds(586, 140, 174, 20));
+    masterLowCutLabel.setBounds(scaledBounds(996, 140, 160, 20));
+    masterHighCutLabel.setBounds(scaledBounds(1406, 140, 160, 20));
 
-    masterSlider.setBounds(scaledBounds(64, 120, 84, 84));
-    globalXFadeSlider.setBounds(scaledBounds(444, 120, 84, 84));
-    masterLowCutSlider.setBounds(scaledBounds(848, 120, 84, 84));
-    masterHighCutSlider.setBounds(scaledBounds(1230, 120, 84, 84));
+    masterSlider.setBounds(scaledBounds(79, 128, 84, 84));
+    globalXFadeSlider.setBounds(scaledBounds(489, 128, 84, 84));
+    masterLowCutSlider.setBounds(scaledBounds(899, 128, 84, 84));
+    masterHighCutSlider.setBounds(scaledBounds(1309, 128, 84, 84));
 
     randomizationLabel.setBounds(scaledBounds(78, 859, 150, 18));
-    randomizeButton.setBounds(scaledBounds(29, 879, 225, 43));
-    randomStartLabel.setBounds(scaledBounds(349, 859, 130, 18));
-    randomStartSlider.setBounds(scaledBounds(272, 856, 68, 68));
+    randomizeButton.setBounds(scaledBounds(42, 858, 218, 70));
+    randomStartLabel.setBounds(scaledBounds(350, 860, 170, 24));
+    randomStartSlider.setBounds(scaledBounds(272, 864, 68, 68));
     masterMeterLabel.setBounds(scaledBounds(596, 859, 160, 18));
+
+    const std::array<juce::Rectangle<int>, 14> tooltipBounds {
+        scaledBounds(522, 236, 104, 35),
+        scaledBounds(626, 236, 160, 35),
+        scaledBounds(796, 236, 60, 35),
+        scaledBounds(866, 232, 80, 41),
+        scaledBounds(946, 232, 80, 41),
+        scaledBounds(1030, 236, 70, 35),
+        scaledBounds(1110, 236, 70, 35),
+        scaledBounds(1190, 236, 70, 35),
+        scaledBounds(1270, 232, 70, 41),
+        scaledBounds(1347, 232, 76, 41),
+        scaledBounds(1434, 236, 60, 35),
+        scaledBounds(1514, 236, 60, 35),
+        scaledBounds(1594, 236, 60, 35),
+        scaledBounds(128, 236, 370, 35)
+    };
+    for (size_t i = 0; i < headerTooltipZones.size(); ++i)
+        headerTooltipZones[i].setBounds(tooltipBounds[i]);
 
     for (int i = 0; i < (int) rows.size(); ++i)
     {
@@ -989,25 +1182,12 @@ SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::WaveformPreview(Scen
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced(1.0f, 0.0f);
-    const auto accent = Theme::layerColour(layerIndex).interpolatedWith(Theme::purple, 0.62f);
+    const auto accent = Theme::layerColour(layerIndex).interpolatedWith(Theme::purple, 0.76f);
     const auto highlight = Theme::layerHighlightColour(layerIndex);
 
     std::array<float, SceneLooperAudioProcessor::waveformPreviewPoints> preview;
     const bool hasPreview = processor.copyWaveformPreview(layerIndex, preview);
     const float centreY = bounds.getCentreY();
-
-    auto drawEdgeMarker = [&g, bounds] (float x, bool right)
-    {
-        const auto y = bounds.getBottom() - 9.0f;
-        const auto h = 8.0f;
-        g.setColour(Theme::mutedText.withAlpha(0.54f));
-        g.drawLine(x, y, x, y + h, 1.15f);
-        g.drawLine(x, y, x + (right ? -3.2f : 3.2f), y, 1.15f);
-        g.drawLine(x, y + h, x + (right ? -3.2f : 3.2f), y + h, 1.15f);
-    };
-
-    drawEdgeMarker(bounds.getX() + 2.0f, false);
-    drawEdgeMarker(bounds.getRight() - 2.0f, true);
 
     if (! hasPreview)
     {
@@ -1018,7 +1198,7 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
     g.reduceClipRegion(bounds.toNearestInt());
 
-    const float usableHeight = bounds.getHeight() * 0.90f;
+    const float usableHeight = bounds.getHeight() * 0.82f;
     const float pointWidth = bounds.getWidth() / (float) SceneLooperAudioProcessor::waveformPreviewPoints;
     const float displayGain = processor.getLayerWaveformDisplayGain(layerIndex);
 
@@ -1032,12 +1212,32 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
         const float peak = juce::jlimit(0.0f, 1.0f, (previous + preview[(size_t) i] * 1.8f + next) * 0.26f * displayGain);
         const float x = bounds.getX() + ((float) i + 0.5f) * pointWidth;
         const float y = juce::jmax(0.8f, peak * usableHeight);
-        const auto waveColour = accent.interpolatedWith(Theme::blue, (float) i / (float) SceneLooperAudioProcessor::waveformPreviewPoints * 0.22f);
-        g.setColour(waveColour.withAlpha(0.08f));
+        const auto waveColour = accent.interpolatedWith(Theme::purple, 0.30f);
+        g.setColour(waveColour.withAlpha(0.040f));
         g.fillRoundedRectangle(x - 2.0f, centreY - y - 2.0f, 4.0f, y * 2.0f + 4.0f, 1.6f);
-        g.setColour(waveColour.withAlpha(0.58f));
+        g.setColour(waveColour.withAlpha(0.34f));
         g.fillRoundedRectangle(x - 1.05f, centreY - y, 2.1f, y * 2.0f, 0.9f);
     }
+
+    auto drawSkipRegion = [&g, bounds] (double start, double end)
+    {
+        if (end <= start)
+            return;
+
+        const float x1 = bounds.getX() + bounds.getWidth() * (float) juce::jlimit(0.0, 1.0, start);
+        const float x2 = bounds.getX() + bounds.getWidth() * (float) juce::jlimit(0.0, 1.0, end);
+        auto region = juce::Rectangle<float>(x1, bounds.getY() + 1.0f, juce::jmax(2.0f, x2 - x1), bounds.getHeight() - 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.125f));
+        g.fillRoundedRectangle(region, 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.20f));
+        g.drawRoundedRectangle(region.reduced(0.4f), 2.0f, 0.8f);
+    };
+
+    for (const auto& range : processor.getLayerSkipRanges(layerIndex))
+        drawSkipRegion(range.start, range.end);
+
+    if (selectingSkipRange)
+        drawSkipRegion(std::min(skipDragStart, skipDragEnd), std::max(skipDragStart, skipDragEnd));
 
     const auto cursorFraction = processor.getLayerPlaybackPositionFraction(layerIndex);
     if (cursorFraction >= 0.0)
@@ -1054,22 +1254,55 @@ void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::paint(juce::Gra
 
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseDown(const juce::MouseEvent& event)
 {
+    if (event.mods.isCtrlDown() || event.mods.isCommandDown())
+    {
+        selectingSkipRange = true;
+        skipDragStart = fractionForPosition(event.position);
+        skipDragEnd = skipDragStart;
+        repaint();
+        return;
+    }
+
     seekToMousePosition(event.position);
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseDrag(const juce::MouseEvent& event)
 {
+    if (selectingSkipRange)
+    {
+        skipDragEnd = fractionForPosition(event.position);
+        repaint();
+        return;
+    }
+
     seekToMousePosition(event.position);
+}
+
+void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::mouseUp(const juce::MouseEvent&)
+{
+    if (! selectingSkipRange)
+        return;
+
+    selectingSkipRange = false;
+    processor.addLayerSkipRange(layerIndex, skipDragStart, skipDragEnd);
+    skipDragStart = -1.0;
+    skipDragEnd = -1.0;
+    repaint();
+}
+
+double SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::fractionForPosition(juce::Point<float> position) const
+{
+    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+    if (bounds.getWidth() <= 0.0f)
+        return 0.0;
+
+    return juce::jlimit(0.0, 1.0, (double) ((position.x - bounds.getX()) / bounds.getWidth()));
 }
 
 void SceneLooperAudioProcessorEditor::LayerRow::WaveformPreview::seekToMousePosition(juce::Point<float> position)
 {
-    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
-    if (bounds.getWidth() <= 0.0f)
-        return;
-
-    const auto fraction = (position.x - bounds.getX()) / bounds.getWidth();
-    processor.seekLayerToFraction(layerIndex, juce::jlimit(0.0f, 1.0f, fraction));
+    const auto fraction = fractionForPosition(position);
+    processor.seekLayerToFraction(layerIndex, fraction);
     repaint();
 }
 
@@ -1086,26 +1319,29 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     numberLabel.setVisible(false);
 
     loadButton.setButtonText("Load");
-    loadButton.setTooltip("Load WAV: choose an audio file for this layer.");
+    loadButton.setTooltip("Load WAV");
     fileLabel.setText(processor.getFileNameForLayer(layerIndex), juce::dontSendNotification);
     fileLabel.setColour(juce::Label::textColourId, Theme::valueText.withAlpha(0.86f));
     fileLabel.setJustificationType(juce::Justification::centredLeft);
-    fileLabel.setFont(juce::Font("Avenir Next", 10.8f, juce::Font::plain));
+    fileLabel.setFont(juce::Font("Avenir Next", 12.0f, juce::Font::plain));
     addAndMakeVisible(fileLabel);
     addAndMakeVisible(waveformPreview);
 
     addAndMakeVisible(loadButton);
     addAndMakeVisible(onButton);
     makeHitZoneOnly(onButton);
-    onButton.setTooltip("Layer number: click to enable or mute this layer.");
+    onButton.setTooltip("Layer on/off");
     onButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
     onButton.onStateChange = [this] { repaint(); };
     soloButton.setButtonText("S");
     addAndMakeVisible(soloButton);
-    soloButton.setTooltip("Solo: listen to this layer by itself.");
+    soloButton.setTooltip("Solo");
     autoPanButton.setButtonText("AP");
     addAndMakeVisible(autoPanButton);
-    autoPanButton.setTooltip("Auto Pan: turn automatic left-right panning on or off for this layer.");
+    autoPanButton.setTooltip("Auto Pan");
+    autopilotButton.setButtonText("AUTO");
+    addAndMakeVisible(autopilotButton);
+    autopilotButton.setTooltip("Autopilot: random seamless layer movement using skip zones and XFade");
 
     auto setupTimeLabel = [] (juce::Label& label)
     {
@@ -1134,6 +1370,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     setupLabel(speedLabel, "Speed");
     setupLabel(driftLabel, "Drift");
     setupLabel(widthLabel, "Width");
+    setupLabel(panXFadeLabel, "Pan XFade");
     setupLabel(autoPanAmountLabel, "Amount");
     setupLabel(autoPanRateLabel, "Rate");
     setupLabel(hpLabel, "HP");
@@ -1146,13 +1383,14 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     addAndMakeVisible(speedLabel);
     addAndMakeVisible(driftLabel);
     addAndMakeVisible(widthLabel);
+    addAndMakeVisible(panXFadeLabel);
     addAndMakeVisible(autoPanAmountLabel);
     addAndMakeVisible(autoPanRateLabel);
     addAndMakeVisible(hpLabel);
     addAndMakeVisible(lpLabel);
     addAndMakeVisible(xfadeLabel);
     addAndMakeVisible(offsetLabel);
-    for (auto* label : { &volumeLabel, &panLabel, &speedLabel, &driftLabel, &widthLabel,
+    for (auto* label : { &volumeLabel, &panLabel, &speedLabel, &driftLabel, &widthLabel, &panXFadeLabel,
                          &autoPanAmountLabel, &autoPanRateLabel, &hpLabel, &lpLabel, &xfadeLabel,
                          &offsetLabel })
     {
@@ -1164,6 +1402,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     setupSlider(speedSlider, "k");
     setupSlider(driftSlider, "%");
     setupSlider(widthSlider, "%");
+    setupSlider(panXFadeSlider, "%");
     setupSlider(autoPanAmountSlider, "");
     setupSlider(autoPanRateSlider, " Hz");
     setupSlider(hpSlider, " Hz");
@@ -1174,17 +1413,15 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     speedSlider.setNumDecimalPlacesToDisplay(1);
     driftSlider.setNumDecimalPlacesToDisplay(0);
     widthSlider.setNumDecimalPlacesToDisplay(0);
+    panXFadeSlider.setNumDecimalPlacesToDisplay(0);
     volumeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     panSlider.textFromValueFunction = [] (double value)
     {
-        if (std::abs(value) < 0.005)
-            return juce::String("C");
-
-        return juce::String(value < 0.0 ? "L " : "R ") + juce::String((int) std::round(std::abs(value) * 100.0));
+        return panText(value);
     };
     autoPanAmountSlider.textFromValueFunction = [] (double value)
     {
-        return juce::String((int) std::round(value * 100.0)) + "%";
+        return decimalText(value * 100.0) + "%";
     };
     autoPanAmountSlider.valueFromTextFunction = [] (const juce::String& text)
     {
@@ -1194,13 +1431,25 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     {
         return juce::String(value, 1) + "k";
     };
+    autoPanRateSlider.textFromValueFunction = [] (double value)
+    {
+        return decimalText(value) + " Hz";
+    };
+    offsetSlider.textFromValueFunction = [] (double value)
+    {
+        return decimalText(value) + " s";
+    };
+    xfadeSlider.textFromValueFunction = [] (double value)
+    {
+        return decimalText(value) + " s";
+    };
     hpSlider.textFromValueFunction = [] (double value)
     {
         return value >= 1000.0 ? juce::String(value / 1000.0, 1) + "k" : juce::String((int) std::round(value)) + " Hz";
     };
     lpSlider.textFromValueFunction = hpSlider.textFromValueFunction;
 
-    for (auto* slider : { &volumeSlider, &panSlider, &speedSlider, &driftSlider, &widthSlider,
+    for (auto* slider : { &volumeSlider, &panSlider, &speedSlider, &driftSlider, &widthSlider, &panXFadeSlider,
                           &autoPanAmountSlider, &autoPanRateSlider, &hpSlider, &lpSlider, &xfadeSlider,
                           &offsetSlider })
     {
@@ -1213,6 +1462,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     addAndMakeVisible(speedSlider);
     addAndMakeVisible(driftSlider);
     addAndMakeVisible(widthSlider);
+    addAndMakeVisible(panXFadeSlider);
     addAndMakeVisible(autoPanAmountSlider);
     addAndMakeVisible(autoPanRateSlider);
     addAndMakeVisible(hpSlider);
@@ -1223,11 +1473,13 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
     onAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "on"), onButton);
     soloAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "solo"), soloButton);
     autoPanAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanOn"), autoPanButton);
+    autopilotAttachment = std::make_unique<ButtonAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autopilotOn"), autopilotButton);
     volumeAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "volume"), volumeSlider);
     panAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "pan"), panSlider);
     speedAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "speed"), speedSlider);
     driftAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "drift"), driftSlider);
     widthAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "width"), widthSlider);
+    panXFadeAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "panXFade"), panXFadeSlider);
     autoPanAmountAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanAmount"), autoPanAmountSlider);
     autoPanRateAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "autoPanRate"), autoPanRateSlider);
     hpAttachment = std::make_unique<SliderAttachment>(processor.apvts, SceneLooperAudioProcessor::paramId(layerIndex, "hp"), hpSlider);
@@ -1237,7 +1489,7 @@ SceneLooperAudioProcessorEditor::LayerRow::LayerRow(SceneLooperAudioProcessor& p
 
     loadButton.onClick = [this]
     {
-        fileChooser = std::make_unique<juce::FileChooser>("Load WAV 48 kHz / 24-bit", juce::File{}, "*.wav");
+        fileChooser = std::make_unique<juce::FileChooser>("Load audio", juce::File{}, "*.wav;*.aif;*.aiff;*.flac");
         fileChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
             [this] (const juce::FileChooser& chooser)
             {
@@ -1288,36 +1540,107 @@ void SceneLooperAudioProcessorEditor::LayerRow::paint(juce::Graphics&)
 
 void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics& g)
 {
-    auto drawControlValue = [&g] (juce::Slider& slider, int width = 56)
+    auto drawControlValue = [this, &g] (juce::Slider& slider, int width = 56)
     {
         auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(17));
-        value.setY(slider.getBottom() + scaledY(2));
-        g.setColour(Theme::valueText.withAlpha(0.88f));
-        g.setFont(juce::Font("Avenir Next", scaledFont(11.4f), juce::Font::plain));
-        g.drawFittedText(sliderValueText(slider), value, juce::Justification::centred, 1);
+        value.setY(slider.getBottom() - scaledY(6));
+        g.setColour(Theme::valueText.withAlpha(0.92f));
+        g.setFont(juce::Font("Avenir Next", scaledFont(13.2f), juce::Font::plain));
+        const auto text = (&slider == &panSlider) ? panText(slider.getValue()) : sliderValueText(slider);
+        g.drawFittedText(text, value, juce::Justification::centred, 1);
+    };
+
+    auto autopilotAmountFor = [this] (float phaseOffset)
+    {
+        const auto phase = (float) std::fmod(juce::Time::getMillisecondCounterHiRes() * 0.000014
+                                             + (double) layerIndex * 0.061 + phaseOffset, 1.0);
+        const auto a = std::sin(phase * juce::MathConstants<float>::twoPi);
+        const auto b = 0.35f * std::sin(phase * juce::MathConstants<float>::twoPi * 2.0f + phaseOffset * 3.4f);
+        const auto c = 0.18f * std::sin(phase * juce::MathConstants<float>::twoPi * 3.0f + phaseOffset * 1.2f);
+        const auto shaped = juce::jlimit(-1.0f, 1.0f, (a + b + c) / 1.53f);
+        return 0.5f + 0.5f * shaped;
+    };
+
+    auto drawAutopilotNeedle = [this, &g, &autopilotAmountFor] (juce::Slider& slider, float phaseOffset, float depth = 0.76f)
+    {
+        if (! autopilotButton.getToggleState())
+            return;
+
+        const auto bounds = slider.getBounds().toFloat().reduced(scaledX(6.0f));
+        const auto centre = bounds.getCentre();
+        const auto radius = bounds.getWidth() * 0.34f;
+        const auto amount = autopilotAmountFor(phaseOffset);
+        const auto angle = -2.35f + amount * 4.70f;
+        const auto marker = centre + juce::Point<float>(std::cos(angle - juce::MathConstants<float>::halfPi),
+                                                        std::sin(angle - juce::MathConstants<float>::halfPi)) * radius * depth;
+        g.setColour(juce::Colour(0xffff6178).withAlpha(0.22f));
+        g.fillEllipse(marker.x - scaledX(5.0f), marker.y - scaledY(5.0f), scaledX(10.0f), scaledY(10.0f));
+        g.setColour(juce::Colour(0xffff8ea0).withAlpha(0.90f));
+        g.fillEllipse(marker.x - scaledX(2.0f), marker.y - scaledY(2.0f), scaledX(4.0f), scaledY(4.0f));
+    };
+
+    auto drawAutopilotText = [this, &g] (juce::Slider& slider, const juce::String& text, int width = 56)
+    {
+        if (! autopilotButton.getToggleState())
+            return false;
+
+        auto value = slider.getBounds().withSizeKeepingCentre(scaledX(width), scaledY(17));
+        value.setY(slider.getBottom() - scaledY(6));
+        g.setColour(juce::Colour(0xffff8ea0).withAlpha(0.95f));
+        g.setFont(juce::Font("Avenir Next", scaledFont(13.2f), juce::Font::plain));
+        g.drawFittedText(text, value, juce::Justification::centred, 1);
+        return true;
     };
 
     if (processor.isLayerLoaded(layerIndex))
-        drawTinyFileBadge(g, scaledBoundsF(93.0f, 10.5f, 12.0f, 12.0f), Theme::layerColour(layerIndex));
+        drawTinyFileBadge(g, scaledBoundsF(94.0f, 8.5f, 12.0f, 12.0f), Theme::layerColour(layerIndex));
 
-    drawTextValue(g, scaledBounds(652, 21, 58, 30), sliderValueText(volumeSlider), scaledFont(12.2f), juce::Justification::centred);
-    drawControlValue(panSlider, 46);
-    drawControlValue(autoPanAmountSlider, 46);
-    drawControlValue(autoPanRateSlider, 52);
-    drawControlValue(speedSlider, 50);
-    drawControlValue(driftSlider, 44);
+    drawTextValue(g, scaledBounds(718, 20, 52, 31), sliderValueText(volumeSlider), scaledFont(13.2f), juce::Justification::centred);
+    drawControlValue(panSlider, 50);
+    if (! drawAutopilotText(autoPanAmountSlider, juce::String((int) std::round(autopilotAmountFor(0.18f) * 18.0f)) + "%", 46))
+        drawControlValue(autoPanAmountSlider, 46);
+    if (! drawAutopilotText(autoPanRateSlider, juce::String(0.01f + autopilotAmountFor(0.35f) * 0.07f, 2) + " Hz", 52))
+        drawControlValue(autoPanRateSlider, 52);
+    if (! drawAutopilotText(speedSlider, juce::String(43.0f + autopilotAmountFor(0.44f) * 12.0f, 1) + "k", 50))
+        drawControlValue(speedSlider, 50);
+    if (! drawAutopilotText(driftSlider, juce::String(0.5f + autopilotAmountFor(0.61f) * 0.8f, 1) + "%", 44))
+        drawControlValue(driftSlider, 44);
     drawControlValue(widthSlider, 48);
+    if (! drawAutopilotText(panXFadeSlider, juce::String((int) std::round(autopilotAmountFor(0.52f) * 10.0f)) + "%", 54))
+        drawControlValue(panXFadeSlider, 54);
     drawControlValue(offsetSlider, 58);
     drawControlValue(hpSlider, 52);
-    drawControlValue(lpSlider, 52);
+    if (! drawAutopilotText(lpSlider, juce::String(8.0f + autopilotAmountFor(0.79f) * 4.0f, 1) + "k", 52))
+        drawControlValue(lpSlider, 52);
     drawControlValue(xfadeSlider, 54);
 
-    g.setColour(Theme::valueText.withAlpha(0.82f));
-    g.setFont(juce::Font("Avenir Next", scaledFont(10.8f), juce::Font::plain));
-    g.drawFittedText(lengthLabel.getText(), scaledBounds(305, 49, 82, 18),
+    drawAutopilotNeedle(panSlider, 0.00f);
+    drawAutopilotNeedle(autoPanAmountSlider, 0.18f, 0.58f);
+    drawAutopilotNeedle(autoPanRateSlider, 0.35f, 0.58f);
+    drawAutopilotNeedle(speedSlider, 0.44f, 0.62f);
+    drawAutopilotNeedle(driftSlider, 0.61f, 0.52f);
+    drawAutopilotNeedle(panXFadeSlider, 0.52f, 0.70f);
+    drawAutopilotNeedle(lpSlider, 0.79f, 0.62f);
+
+    g.setColour(Theme::valueText.withAlpha(0.84f));
+    g.setFont(juce::Font("Avenir Next", scaledFont(11.6f), juce::Font::plain));
+    g.drawFittedText(lengthLabel.getText(), scaledBounds(330, 8, 88, 18),
                      juce::Justification::centredRight, 1);
 
-    auto led = scaledBoundsF(106.0f, 63.0f, 318.0f, 5.5f);
+    auto drawWaveBracket = [&g] (float x, bool right)
+    {
+        const auto y = (float) scaledY(56.0f);
+        const auto h = (float) scaledY(12.0f);
+        const auto arm = (float) scaledX(5.0f);
+        g.setColour(Theme::mutedText.withAlpha(0.50f));
+        g.drawLine(x, y, x, y + h, 1.15f);
+        g.drawLine(x, y, x + (right ? -arm : arm), y, 1.15f);
+        g.drawLine(x, y + h, x + (right ? -arm : arm), y + h, 1.15f);
+    };
+    drawWaveBracket((float) scaledX(92.0f), false);
+    drawWaveBracket((float) scaledX(490.0f), true);
+
+    auto led = scaledBoundsF(106.0f, 63.0f, 360.0f, 5.0f);
     const int segments = 40;
     const auto rawLevel = juce::jlimit(0.0f, 1.0f, processor.getLayerLevel(layerIndex));
     const auto levelDb = rawLevel > 0.000001f ? juce::Decibels::gainToDecibels(rawLevel) : -80.0f;
@@ -1334,16 +1657,33 @@ void SceneLooperAudioProcessorEditor::LayerRow::paintOverChildren(juce::Graphics
         const auto colour = Theme::purple.interpolatedWith(Theme::cyan, t);
         const auto segmentWidth = led.getWidth() / (float) segments;
         const auto x = led.getX() + (float) i * segmentWidth;
-        g.setColour(active ? colour.withAlpha(0.36f) : juce::Colour(0xff0b2a30).withAlpha(0.08f));
+        g.setColour(active ? colour.withAlpha(0.24f) : juce::Colour(0xff0b2a30).withAlpha(0.07f));
         g.fillRoundedRectangle(x, led.getY(), juce::jmax(1.6f, segmentWidth - 2.0f), led.getHeight(), 0.55f);
     }
 
-    if (! processor.isLayerLoaded(layerIndex) || ! onButton.getToggleState())
+    const auto autopilotActive = autopilotButton.getToggleState();
+    if (! processor.isLayerLoaded(layerIndex) || ! onButton.getToggleState() || autopilotActive)
     {
-        g.setColour(juce::Colours::black.withAlpha(0.34f));
-        g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(1.0f, 1.0f), 3.5f);
-        g.setColour(juce::Colour(0xff011115).withAlpha(0.20f));
-        g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(3.0f, 5.0f), 3.0f);
+        auto dimArea = getLocalBounds().toFloat().withTrimmedLeft((float) scaledX(72.0f));
+        const auto pulse = 0.45f + 0.55f * (float) std::sin(juce::Time::getMillisecondCounterHiRes() * 0.0055);
+        g.setColour(juce::Colours::black.withAlpha(autopilotActive ? 0.10f : 0.34f));
+        g.fillRoundedRectangle(dimArea.reduced(1.0f, 1.0f), 3.5f);
+        g.setColour((autopilotActive ? juce::Colour(0xffd12a55) : juce::Colour(0xff011115)).withAlpha(autopilotActive ? 0.055f + pulse * 0.045f : 0.20f));
+        g.fillRoundedRectangle(dimArea.reduced(3.0f, 5.0f), 3.0f);
+        if (autopilotActive)
+        {
+            g.setColour(juce::Colour(0xffd12a55).withAlpha(0.12f + pulse * 0.10f));
+            g.drawRoundedRectangle(dimArea.reduced(1.5f, 2.0f), 4.0f, 0.9f);
+        }
+    }
+
+    if (onButton.isMouseOver())
+    {
+        const auto badge = scaledBoundsF(12.0f, 8.0f, 52.0f, 54.0f);
+        g.setColour(Theme::layerColour(layerIndex).withAlpha(0.10f));
+        g.fillRoundedRectangle(badge, scaledY(6.0f));
+        g.setColour(Theme::layerHighlightColour(layerIndex).withAlpha(0.30f));
+        g.drawRoundedRectangle(badge, scaledY(6.0f), scaledY(1.0f));
     }
 }
 
@@ -1351,15 +1691,16 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
 {
     numberLabel.setBounds(scaledBounds(0, 0, 60, 70));
 
-    fileLabel.setBounds(scaledBounds(110, 49, 220, 18));
-    waveformPreview.setBounds(scaledBounds(92, 18, 330, 31));
-    loadButton.setBounds(scaledBounds(434, 21, 50, 22));
+    fileLabel.setBounds(scaledBounds(110, 7, 250, 19));
+    waveformPreview.setBounds(scaledBounds(92, 22, 398, 36));
+    loadButton.setBounds(scaledBounds(440, 7, 50, 21));
 
     onButton.setBounds(scaledBounds(0, 0, 72, 70));
-    soloButton.setBounds(scaledBounds(494, 19, 28, 28));
-    autoPanButton.setBounds(scaledBounds(532, 19, 28, 28));
+    soloButton.setBounds(scaledBounds(500, 19, 28, 28));
+    autoPanButton.setBounds(scaledBounds(535, 19, 28, 28));
+    autopilotButton.setBounds(scaledBounds(570, 19, 34, 28));
 
-    volumeSlider.setBounds(scaledBounds(578, 22, 68, 26));
+    volumeSlider.setBounds(scaledBounds(618, 21, 114, 28));
 
     auto placeKnob = [] (juce::Slider& slider, int centreX, int centreY, int size = 42)
     {
@@ -1367,16 +1708,19 @@ void SceneLooperAudioProcessorEditor::LayerRow::resized()
                          scaledX(size), scaledY(size));
     };
 
-    placeKnob(panSlider, 742, 34);
-    placeKnob(autoPanAmountSlider, 850, 34);
-    placeKnob(autoPanRateSlider, 952, 34);
-    placeKnob(speedSlider, 1044, 34);
-    placeKnob(driftSlider, 1136, 34);
-    placeKnob(widthSlider, 1228, 34);
-    placeKnob(offsetSlider, 1338, 34);
-    placeKnob(hpSlider, 1434, 34);
-    placeKnob(lpSlider, 1514, 34);
-    placeKnob(xfadeSlider, 1598, 34);
+    constexpr int firstKnobCentre = 810;
+    constexpr int knobStep = 80;
+    placeKnob(panSlider, firstKnobCentre + knobStep * 0, 33, 48);
+    placeKnob(autoPanAmountSlider, firstKnobCentre + knobStep * 1, 33, 48);
+    placeKnob(autoPanRateSlider, firstKnobCentre + knobStep * 2, 33, 48);
+    placeKnob(speedSlider, firstKnobCentre + knobStep * 3, 33, 48);
+    placeKnob(driftSlider, firstKnobCentre + knobStep * 4, 33, 48);
+    placeKnob(widthSlider, firstKnobCentre + knobStep * 5, 33, 48);
+    placeKnob(panXFadeSlider, firstKnobCentre + knobStep * 6, 33, 46);
+    placeKnob(offsetSlider, firstKnobCentre + knobStep * 7, 33, 48);
+    placeKnob(hpSlider, firstKnobCentre + knobStep * 8, 33, 46);
+    placeKnob(lpSlider, firstKnobCentre + knobStep * 9, 33, 46);
+    placeKnob(xfadeSlider, firstKnobCentre + knobStep * 10, 33, 46);
 
     lengthLabel.setBounds(scaledBounds(1502, 17, 116, 18));
     remainLabel.setBounds(scaledBounds(1502, 34, 116, 18));
